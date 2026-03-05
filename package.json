@@ -1,0 +1,36 @@
+{
+  "name": "agent-swarm",
+  "version": "0.1.0",
+  "description": "多 Agent 协作框架 - 快速创建 Agent，统一消息路由，Session 持久化",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "agent-swarm": "dist/main.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "vitest",
+    "test:coverage": "vitest --coverage",
+    "lint": "eslint src",
+    "format": "prettier --write src",
+    "start": "node dist/main.js"
+  },
+  "keywords": ["agent", "swarm", "llm", "anthropic"],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.32.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@vitest/coverage-v8": "^1.2.0",
+    "eslint": "^8.56.0",
+    "prettier": "^3.2.0",
+    "typescript": "^5.3.3",
+    "vitest": "^1.2.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
