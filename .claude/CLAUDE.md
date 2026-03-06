@@ -1,6 +1,55 @@
 # 架构设计(除非要求，否则不允许改动)
 [design.md](design.md)
 
+---
+
+# AI Native 设计规范
+
+## 设计原则
+
+**核心理念**：用户用自然语言描述需求，AI 自动生成配置，无需手写 JSON。
+
+| 传统方式 | AI Native |
+|---------|-----------|
+| 手写 config.json | 告诉 Claude "创建一个客服 Agent" |
+| 查阅文档了解字段 | Claude 读取 skills 自动生成 |
+| 容易拼写错误 | AI 保证格式正确 |
+
+## 实现方式
+
+1. **Skills 目录**：`~/.agent-swarm/.claude/skills/`
+2. **工作流程**：用户描述需求 → Claude 读取 skill → 自动生成配置
+
+## 目录结构
+
+```
+~/.agent-swarm/
+├── .claude/
+│   └── skills/
+│       ├── create-agent.md      # 创建 Agent
+│       ├── configure-agent.md   # 配置 Agent
+│       └── add-channel.md       # 添加渠道
+│
+├── agents/
+│   └── <agent-id>/
+│       ├── config.json          # AI 自动生成
+│       └── prompt.md            # AI 自动生成
+│
+└── sessions/
+```
+
+## 使用示例
+
+```
+用户: "创建一个翻译助手"
+Claude: [读取 create-agent.md] → 生成 config.json + prompt.md
+
+用户: "给翻译助手添加钉钉渠道"
+Claude: [读取 add-channel.md] → 更新 channels 配置
+```
+
+---
+
 # 回归测试用例：[REGRESSION_TEST_CASES.md](../tests/REGRESSION_TEST_CASES.md)
 要求：维持在300行以内，保留核心流程用例
 

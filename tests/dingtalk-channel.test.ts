@@ -3,7 +3,11 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { DingTalkChannel, type DingTalkConfig, type DingTalkSendMessage } from '../src/channel/DingTalkChannel.js';
+import {
+  DingTalkChannel,
+  type DingTalkConfig,
+  type DingTalkSendMessage,
+} from '../src/channel/DingTalkChannel.js';
 import type { IncomingMessage, OutgoingMessage } from '../src/channel/types.js';
 
 describe('DingTalkChannel', () => {
@@ -257,6 +261,213 @@ describe('DingTalkChannel', () => {
       expect(outgoing.conversationId).toBe('conv123');
       expect(outgoing.userId).toBe('user456');
       expect(outgoing.content).toBe('Hello');
+    });
+  });
+
+  describe('消息发送失败重试机制', () => {
+    it('TC-DT-001: 发送失败后应自动重试', async () => {
+      // 创建带重试配置的 Channel，禁用持久化重试
+      const retryChannel = new DingTalkChannel({
+        ...defaultConfig,
+        maxRetries: 3,
+        retryDelay: 100, // 100ms 便于测试
+        enablePersistentRetry: false,
+      });
+
+      await retryChannel.start();
+
+      // Mock sendToDingTalkAPI - 第一次失败，第二次成功
+      let callCount = 0;
+      const sendSpy = vi
+        .spyOn(
+          retryChannel as unknown as { sendToDingTalkAPI: () => Promise<void> },
+          'sendToDingTalkAPI'
+        )
+        .mockImplementation(async () => {
+          callCount++;
+          if (callCount === 1) {
+            throw new Error('Network error');
+          }
+        });
+
+      const message: OutgoingMessage = {
+        channelId: 'dingtalk',
+        userId: 'user123',
+        content: 'Test retry',
+      };
+
+      // 发送应最终成功（第二次尝试）
+      await retryChannel.send(message);
+
+      // 验证被调用了两次（第一次失败，第二次成功）
+      expect(sendSpy).toHaveBeenCalledTimes(2);
+
+      await retryChannel.stop();
+    });
+
+    it('TC-DT-002: 超过最大重试次数应抛出错误', async () => {
+      const retryChannel = new DingTalkChannel({
+        ...defaultConfig,
+        maxRetries: 2,
+        retryDelay: 50,
+        enablePersistentRetry: false,
+      });
+
+      await retryChannel.start();
+
+      // Mock 始终失败
+      vi.spyOn(
+        retryChannel as unknown as { sendToDingTalkAPI: () => Promise<void> },
+        'sendToDingTalkAPI'
+      ).mockRejectedValue(new Error('Permanent failure'));
+
+      const message: OutgoingMessage = {
+        channelId: 'dingtalk',
+        userId: 'user123',
+        content: 'Test max retries',
+      };
+
+      // 应抛出错误
+      await expect(retryChannel.send(message)).rejects.toThrow('Permanent failure');
+
+      await retryChannel.stop();
+    });
+
+    it('TC-DT-003: 应使用指数退避延迟重试', async () => {
+      const retryChannel = new DingTalkChannel({
+        ...defaultConfig,
+        maxRetries: 3,
+        retryDelay: 100,
+        retryBackoffFactor: 2, // 指数退避因子
+        enablePersistentRetry: false,
+      });
+
+      await retryChannel.start();
+
+      const delays: number[] = [];
+      let lastCallTime = 0;
+
+      vi.spyOn(
+        retryChannel as unknown as { sendToDingTalkAPI: () => Promise<void> },
+        'sendToDingTalkAPI'
+      ).mockImplementation(async () => {
+        const now = Date.now();
+        if (lastCallTime > 0) {
+          delays.push(now - lastCallTime);
+        }
+        lastCallTime = now;
+
+        // 前两次失败，第三次成功
+        if (delays.length < 2) {
+          throw new Error('Temporary failure');
+        }
+      });
+
+      const message: OutgoingMessage = {
+        channelId: 'dingtalk',
+        userId: 'user123',
+        content: 'Test backoff',
+      };
+
+      await retryChannel.send(message);
+
+      // 验证延迟是递增的（100ms, 200ms）
+      expect(delays.length).toBe(2);
+      expect(delays[0]).toBeGreaterThanOrEqual(90); // 允许 10ms 误差
+      expect(delays[1]).toBeGreaterThanOrEqual(delays[0] * 1.8); // 第二次延迟约为第一次的 2 倍
+
+      await retryChannel.stop();
+    });
+
+    it('TC-DT-004: 发送成功后不应重试', async () => {
+      const retryChannel = new DingTalkChannel({
+        ...defaultConfig,
+        maxRetries: 3,
+        retryDelay: 100,
+        enablePersistentRetry: false,
+      });
+
+      await retryChannel.start();
+
+      const sendSpy = vi
+        .spyOn(
+          retryChannel as unknown as { sendToDingTalkAPI: () => Promise<void> },
+          'sendToDingTalkAPI'
+        )
+        .mockResolvedValue(undefined);
+
+      const message: OutgoingMessage = {
+        channelId: 'dingtalk',
+        userId: 'user123',
+        content: 'Test no retry',
+      };
+
+      await retryChannel.send(message);
+
+      // 只应调用一次
+      expect(sendSpy).toHaveBeenCalledTimes(1);
+
+      await retryChannel.stop();
+    });
+  });
+
+  describe('持久化重试机制', () => {
+    let tempDir: string;
+
+    beforeEach(async () => {
+      const { tmpdir } = await import('os');
+      const { join } = await import('path');
+      tempDir = join(tmpdir(), `dingtalk-channel-${Date.now()}`);
+    });
+
+    afterEach(async () => {
+      const { promises: fs } = await import('fs');
+      try {
+        await fs.rm(tempDir, { recursive: true, force: true });
+      } catch {
+        // 忽略清理错误
+      }
+    });
+
+    it('应启用持久化重试', async () => {
+      const persistentChannel = new DingTalkChannel({
+        ...defaultConfig,
+        storagePath: tempDir,
+        enablePersistentRetry: true,
+      });
+
+      await persistentChannel.start();
+
+      expect(persistentChannel.isPersistentRetryEnabled()).toBe(true);
+
+      const stats = persistentChannel.getQueueStats();
+      expect(stats).not.toBeNull();
+
+      await persistentChannel.stop();
+    });
+
+    it('默认应禁用持久化重试', async () => {
+      await channel.start();
+
+      expect(channel.isPersistentRetryEnabled()).toBe(false);
+
+      const stats = channel.getQueueStats();
+      expect(stats).toBeNull();
+    });
+
+    it('应能获取死信队列', async () => {
+      const persistentChannel = new DingTalkChannel({
+        ...defaultConfig,
+        storagePath: tempDir,
+        enablePersistentRetry: true,
+      });
+
+      await persistentChannel.start();
+
+      const deadLetters = persistentChannel.getDeadLetters();
+      expect(deadLetters).toEqual([]);
+
+      await persistentChannel.stop();
     });
   });
 });
