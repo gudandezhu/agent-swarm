@@ -1,7 +1,7 @@
 # E2E 测试 Docker 环境
 # 模拟全新用户环境测试 agent-swarm
 
-FROM node:18-alpine
+FROM node:20-alpine
 
 # 设置工作目录
 WORKDIR /app

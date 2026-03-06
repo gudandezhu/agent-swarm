@@ -90,7 +90,7 @@ export class AgentManager {
     const now = Date.now();
     const toUnload: string[] = [];
 
-    for (const [agentId, state] of this.states) {
+    for (const [agentId, state] of Array.from(this.states.entries())) {
       if (now - state.lastUsedAt > this.idleTimeout) {
         toUnload.push(agentId);
       }
@@ -417,7 +417,7 @@ export class AgentManager {
     this.stopCleanup();
 
     // 卸载所有 Agent
-    for (const agent of this.agents.values()) {
+    for (const agent of Array.from(this.agents.values())) {
       agent.abort();
     }
     this.agents.clear();

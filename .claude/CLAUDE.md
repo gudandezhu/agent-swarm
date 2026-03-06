@@ -28,3 +28,31 @@ npx vitest run --coverage
 ### watch 模式退出
 
 按 `q` 键退出
+
+---
+
+# Docker E2E 测试
+
+## 目的
+在隔离的 Docker 环境中验证完整用户流程，模拟全新环境下的项目使用。
+
+## 文件
+- `Dockerfile.e2e` - E2E 测试镜像定义
+- `docker-compose.e2e.yml` - Docker Compose 配置
+- `tests/e2e-real-user.test.ts` - 真实用户场景测试
+
+## 运行命令
+
+```bash
+# 构建镜像
+docker build -f Dockerfile.e2e -t agent-swarm:e2e .
+
+# 运行 E2E 测试
+docker run --rm agent-swarm:e2e
+
+# 或运行特定测试
+docker run --rm agent-swarm:e2e npm test -- tests/e2e-real-user.test.ts --run
+
+# 使用 docker-compose
+docker-compose -f docker-compose.e2e.yml up
+```

@@ -181,7 +181,7 @@ describe('AgentSwarm (补充测试)', () => {
       const sessionId = 'cli:user123';
       const channelId = sessionId.split(':')[0]; // 'cli'
 
-      const channel = swarm['getChannelFromSession'](sessionId);
+      const channel = swarm['_getChannelFromSession'](sessionId);
       expect(channel).toBeDefined();
       expect(channel?.id).toBe('cli');
     });
@@ -189,7 +189,7 @@ describe('AgentSwarm (补充测试)', () => {
     it('应返回 undefined 当 Channel 不存在', async () => {
       await swarm.start();
 
-      const channel = swarm['getChannelFromSession']('unknown-channel:user123');
+      const channel = swarm['_getChannelFromSession']('unknown-channel:user123');
       expect(channel).toBeUndefined();
     });
   });

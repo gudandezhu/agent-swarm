@@ -7,7 +7,9 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { promises as fs } from 'fs';
 import { join } from 'path';
 import { JSONLMessageStore } from '../src/message/JSONLMessageStore.js';
-import type { Message, PersistentMessage } from '../src/message/types.js';
+import type { Message } from '../src/message/types.js';
+import type { PersistentMessage } from '../src/core/IMessageStore.js';
+import { MessageStatus } from '../src/core/IMessageStore.js';
 
 describe('JSONLMessageStore', () => {
   let store: JSONLMessageStore;
@@ -294,7 +296,10 @@ describe('JSONLMessageStore', () => {
       const newStore = new JSONLMessageStore(newPath);
       await newStore.init();
 
-      const exists = await fs.access(newPath).then(() => true).catch(() => false);
+      const exists = await fs
+        .access(newPath)
+        .then(() => true)
+        .catch(() => false);
       expect(exists).toBe(true);
 
       await newStore.destroy();

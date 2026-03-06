@@ -325,8 +325,7 @@ export class AgentSwarm {
   /**
    * 获取 Channel（从 Session ID 提取 Channel ID）
    */
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  getChannelFromSession(sessionId: string): IChannel | undefined {
+  _getChannelFromSession(sessionId: string): IChannel | undefined {
     const channelId = sessionId.split(':')[0];
     return this.channels.get(channelId);
   }

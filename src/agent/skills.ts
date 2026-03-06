@@ -4,7 +4,7 @@
 
 import { promises as fs } from 'fs';
 import { join } from 'path';
-import yaml from 'js-yaml';
+import * as yaml from 'js-yaml';
 
 export interface SkillMetadata {
   name: string;
@@ -78,7 +78,7 @@ export class SkillLoader {
     }
 
     try {
-      const frontmatter = yaml.load(match[1]) as SkillMetadata;
+      const frontmatter = yaml.load(match[1]) as any;
       return {
         name: frontmatter.name ?? 'unknown',
         description: frontmatter.description ?? 'unknown',
@@ -94,9 +94,7 @@ export class SkillLoader {
   private async listSkillDirs(): Promise<string[]> {
     try {
       const entries = await fs.readdir(this.skillsPath, { withFileTypes: true });
-      return entries
-        .filter((e) => e.isDirectory())
-        .map((e) => e.name);
+      return entries.filter((e) => e.isDirectory()).map((e) => e.name);
     } catch {
       return [];
     }
