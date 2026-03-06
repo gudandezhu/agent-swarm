@@ -110,7 +110,7 @@ class MockMessageBus implements IMessageBus {
     return this.stats;
   }
 
-  health() {
+  async health() {
     return { status: 'healthy' as const, details: {} };
   }
 
@@ -316,7 +316,7 @@ describe('RetryScheduler', () => {
     it('应捕获并记录扫描错误', async () => {
       // 创建一个会抛出错误的 messageStore
       class FailingMessageStore extends MockMessageStore {
-        async getTimeoutMessages() {
+        override async getTimeoutMessages(): Promise<PersistentMessage[]> {
           throw new Error('Test error');
         }
       }
