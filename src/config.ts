@@ -1,0 +1,160 @@
+/**
+ * 全局配置加载器
+ *
+ * 支持三层配置优先级：
+ * 1. 环境变量（向后兼容）
+ * 2. 共享配置文件 (~/.agent-swarm/config.json)
+ * 3. Agent 专用配置 (agents/{agent-id}/config.json 中的 model.apiKey)
+ */
+
+import { promises as fs } from 'fs';
+import { join } from 'path';
+import { homedir } from 'os';
+
+/**
+ * 全局配置结构
+ */
+export interface GlobalConfig {
+  apiKeys?: {
+    anthropic?: string;
+    openai?: string;
+    [key: string]: string | undefined;
+  };
+  workspace?: string;
+}
+
+/**
+ * API 密钥来源
+ */
+export type ApiKeySource = 'env' | 'global' | 'agent';
+
+/**
+ * API 密钥解析结果
+ */
+export interface ApiKeyResult {
+  key: string;
+  source: ApiKeySource;
+}
+
+/**
+ * 全局配置加载器
+ */
+export class ConfigLoader {
+  private static instance: ConfigLoader;
+  private config: GlobalConfig | null = null;
+  private configPath: string;
+
+  private constructor() {
+    this.configPath = join(homedir(), '.agent-swarm', 'config.json');
+  }
+
+  /**
+   * 获取单例实例
+   */
+  static getInstance(): ConfigLoader {
+    if (!ConfigLoader.instance) {
+      ConfigLoader.instance = new ConfigLoader();
+    }
+    return ConfigLoader.instance;
+  }
+
+  /**
+   * 设置配置路径（用于测试）
+   */
+  setConfigPath(path: string): void {
+    this.configPath = path;
+    this.config = null;
+  }
+
+  /**
+   * 加载全局配置
+   */
+  async load(): Promise<GlobalConfig> {
+    if (this.config) {
+      return this.config;
+    }
+
+    try {
+      const content = await fs.readFile(this.configPath, 'utf-8');
+      this.config = JSON.parse(content) as GlobalConfig;
+      return this.config;
+    } catch {
+      // 配置文件不存在，返回空配置
+      this.config = {};
+      return this.config;
+    }
+  }
+
+  /**
+   * 获取 API 密钥（按优先级）
+   *
+   * 优先级：
+   * 1. 环境变量 ANTHROPIC_API_KEY / OPENAI_API_KEY
+   * 2. 全局配置 ~/.agent-swarm/config.json
+   * 3. Agent 专用配置（由调用方传入）
+   */
+  async getApiKey(
+    provider: string,
+    agentApiKey?: string
+  ): Promise<ApiKeyResult | null> {
+    const providerKey = provider.toLowerCase();
+
+    // 1. 检查环境变量
+    const envKey = this.getEnvApiKey(providerKey);
+    if (envKey) {
+      return { key: envKey, source: 'env' };
+    }
+
+    // 2. 检查全局配置
+    const globalConfig = await this.load();
+    const globalKey = globalConfig.apiKeys?.[providerKey];
+    if (globalKey) {
+      return { key: globalKey, source: 'global' };
+    }
+
+    // 3. 检查 Agent 专用配置
+    if (agentApiKey) {
+      return { key: agentApiKey, source: 'agent' };
+    }
+
+    return null;
+  }
+
+  /**
+   * 从环境变量获取 API 密钥
+   */
+  private getEnvApiKey(provider: string): string | undefined {
+    const envMap: Record<string, string> = {
+      anthropic: 'ANTHROPIC_API_KEY',
+      openai: 'OPENAI_API_KEY',
+    };
+
+    const envKey = envMap[provider];
+    if (envKey) {
+      return process.env[envKey];
+    }
+
+    // 支持自定义 provider 的环境变量
+    return process.env[`${provider.toUpperCase()}_API_KEY`];
+  }
+
+  /**
+   * 重新加载配置
+   */
+  async reload(): Promise<GlobalConfig> {
+    this.config = null;
+    return this.load();
+  }
+
+  /**
+   * 获取配置路径
+   */
+  getConfigPath(): string {
+    return this.configPath;
+  }
+}
+
+/**
+ * 导出单例获取函数
+ */
+export const getConfigLoader = (): ConfigLoader => ConfigLoader.getInstance();

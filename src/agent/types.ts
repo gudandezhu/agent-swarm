@@ -5,6 +5,11 @@
 export interface Model {
   provider: string;
   id: string;
+  /**
+   * Agent 专用 API 密钥（可选）
+   * 如果未设置，则使用共享配置或环境变量
+   */
+  apiKey?: string;
 }
 
 export interface AgentConfig {

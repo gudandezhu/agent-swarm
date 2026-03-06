@@ -25,7 +25,7 @@ describe('AgentManager (pi-mono Agent)', () => {
     it('应该返回 Agent 实例', async () => {
       manager = new AgentManager({ agentsPath: testAgentsPath });
 
-      // 创建测试 agent 配置
+      // 创建测试 agent 配置（包含 API 密钥）
       const agentPath = join(testAgentsPath, 'test-agent');
       await fs.mkdir(agentPath, { recursive: true });
       await fs.writeFile(
@@ -33,7 +33,7 @@ describe('AgentManager (pi-mono Agent)', () => {
         JSON.stringify({
           id: 'test-agent',
           name: 'Test Agent',
-          model: { provider: 'anthropic', id: 'claude-haiku-4-20250514' },
+          model: { provider: 'anthropic', id: 'claude-haiku-4-20250514', apiKey: 'test-api-key' },
           channels: ['cli'],
         }),
         'utf-8'
@@ -64,7 +64,7 @@ describe('AgentManager (pi-mono Agent)', () => {
         JSON.stringify({
           id: 'cached-agent',
           name: 'Cached Agent',
-          model: { provider: 'anthropic', id: 'claude-haiku-4-20250514' },
+          model: { provider: 'anthropic', id: 'claude-haiku-4-20250514', apiKey: 'test-api-key' },
           channels: ['cli'],
         }),
         'utf-8'
@@ -98,7 +98,7 @@ describe('AgentManager (pi-mono Agent)', () => {
         JSON.stringify({
           id: 'mock-agent',
           name: 'Mock Agent',
-          model: { provider: 'anthropic', id: 'claude-haiku-4-20250514' },
+          model: { provider: 'anthropic', id: 'claude-haiku-4-20250514', apiKey: 'test-api-key' },
           channels: ['cli'],
         }),
         'utf-8'
@@ -141,7 +141,7 @@ describe('AgentManager (pi-mono Agent)', () => {
         JSON.stringify({
           id: 'async-mock-agent',
           name: 'Async Mock Agent',
-          model: { provider: 'anthropic', id: 'claude-haiku-4-20250514' },
+          model: { provider: 'anthropic', id: 'claude-haiku-4-20250514', apiKey: 'test-api-key' },
           channels: ['cli'],
         }),
         'utf-8'
@@ -192,7 +192,7 @@ This is a test skill.`,
         JSON.stringify({
           id: 'skilled-agent',
           name: 'Skilled Agent',
-          model: { provider: 'anthropic', id: 'claude-haiku-4-20250514' },
+          model: { provider: 'anthropic', id: 'claude-haiku-4-20250514', apiKey: 'test-api-key' },
           channels: ['cli'],
         }),
         'utf-8'
@@ -217,7 +217,7 @@ This is a test skill.`,
         JSON.stringify({
           id: 'existing-agent',
           name: 'Existing Agent',
-          model: { provider: 'anthropic', id: 'claude-haiku-4-20250514' },
+          model: { provider: 'anthropic', id: 'claude-haiku-4-20250514', apiKey: 'test-api-key' },
           channels: ['cli'],
         }),
         'utf-8'
@@ -248,7 +248,7 @@ This is a test skill.`,
           JSON.stringify({
             id: `list-agent-${i}`,
             name: `List Agent ${i}`,
-            model: { provider: 'anthropic', id: 'claude-haiku-4-20250514' },
+            model: { provider: 'anthropic', id: 'claude-haiku-4-20250514', apiKey: 'test-api-key' },
             channels: ['cli'],
           }),
           'utf-8'
@@ -275,7 +275,7 @@ This is a test skill.`,
         JSON.stringify({
           id: 'reload-agent',
           name: 'Reload Agent',
-          model: { provider: 'anthropic', id: 'claude-haiku-4-20250514' },
+          model: { provider: 'anthropic', id: 'claude-haiku-4-20250514', apiKey: 'test-api-key' },
           channels: ['cli'],
         }),
         'utf-8'
@@ -308,7 +308,7 @@ This is a test skill.`,
         JSON.stringify({
           id: 'state-agent',
           name: 'State Agent',
-          model: { provider: 'anthropic', id: 'claude-haiku-4-20250514' },
+          model: { provider: 'anthropic', id: 'claude-haiku-4-20250514', apiKey: 'test-api-key' },
           channels: ['cli'],
         }),
         'utf-8'
@@ -344,7 +344,7 @@ This is a test skill.`,
         JSON.stringify({
           id: 'destroy-agent',
           name: 'Destroy Agent',
-          model: { provider: 'anthropic', id: 'claude-haiku-4-20250514' },
+          model: { provider: 'anthropic', id: 'claude-haiku-4-20250514', apiKey: 'test-api-key' },
           channels: ['cli'],
         }),
         'utf-8'
@@ -371,7 +371,7 @@ This is a test skill.`,
         JSON.stringify({
           id: 'no-prompt-agent',
           name: 'No Prompt Agent',
-          model: { provider: 'anthropic', id: 'claude-haiku-4-20250514' },
+          model: { provider: 'anthropic', id: 'claude-haiku-4-20250514', apiKey: 'test-api-key' },
           channels: ['cli'],
         }),
         'utf-8'
@@ -395,7 +395,7 @@ This is a test skill.`,
         JSON.stringify({
           id: 'invalid-prompt-agent',
           name: 'Invalid Prompt Agent',
-          model: { provider: 'anthropic', id: 'claude-haiku-4-20250514' },
+          model: { provider: 'anthropic', id: 'claude-haiku-4-20250514', apiKey: 'test-api-key' },
           channels: ['cli'],
         }),
         'utf-8'
@@ -430,7 +430,7 @@ This is a test skill.`,
         JSON.stringify({
           id: 'obj-mock-agent',
           name: 'Object Mock Agent',
-          model: { provider: 'anthropic', id: 'claude-haiku-4-20250514' },
+          model: { provider: 'anthropic', id: 'claude-haiku-4-20250514', apiKey: 'test-api-key' },
           channels: ['cli'],
         }),
         'utf-8'
@@ -470,7 +470,7 @@ This is a test skill.`,
         JSON.stringify({
           id: 'empty-mock-agent',
           name: 'Empty Mock Agent',
-          model: { provider: 'anthropic', id: 'claude-haiku-4-20250514' },
+          model: { provider: 'anthropic', id: 'claude-haiku-4-20250514', apiKey: 'test-api-key' },
           channels: ['cli'],
         }),
         'utf-8'
@@ -490,6 +490,62 @@ This is a test skill.`,
 
       const response = await manager.process('empty-mock-agent', message);
       expect(response).toBe('Empty payload handled');
+    });
+  });
+
+  describe('API 密钥配置', () => {
+    it('应该使用 Agent 专用 API 密钥', async () => {
+      manager = new AgentManager({ agentsPath: testAgentsPath });
+
+      const agentPath = join(testAgentsPath, 'api-key-agent');
+      await fs.mkdir(agentPath, { recursive: true });
+      await fs.writeFile(
+        join(agentPath, 'config.json'),
+        JSON.stringify({
+          id: 'api-key-agent',
+          name: 'API Key Agent',
+          model: {
+            provider: 'anthropic',
+            id: 'claude-haiku-4-20250514',
+            apiKey: 'agent-specific-key',
+          },
+          channels: ['cli'],
+        }),
+        'utf-8'
+      );
+      await fs.writeFile(join(agentPath, 'prompt.md'), 'You are an API key test agent.', 'utf-8');
+
+      const agent = await manager.get('api-key-agent');
+      expect(agent).toBeDefined();
+    });
+
+    it('应该在没有 API 密钥时抛出错误', async () => {
+      // 保存原始环境变量
+      const originalKey = process.env.ANTHROPIC_API_KEY;
+      delete process.env.ANTHROPIC_API_KEY;
+
+      manager = new AgentManager({ agentsPath: testAgentsPath });
+
+      const agentPath = join(testAgentsPath, 'no-key-agent');
+      await fs.mkdir(agentPath, { recursive: true });
+      await fs.writeFile(
+        join(agentPath, 'config.json'),
+        JSON.stringify({
+          id: 'no-key-agent',
+          name: 'No Key Agent',
+          model: { provider: 'anthropic', id: 'claude-haiku-4-20250514' },
+          channels: ['cli'],
+        }),
+        'utf-8'
+      );
+      await fs.writeFile(join(agentPath, 'prompt.md'), 'You are a test agent.', 'utf-8');
+
+      await expect(manager.get('no-key-agent')).rejects.toThrow('API key not found');
+
+      // 恢复环境变量
+      if (originalKey) {
+        process.env.ANTHROPIC_API_KEY = originalKey;
+      }
     });
   });
 });

@@ -378,17 +378,71 @@ const swarm = new AgentSwarm({
 workspace: /custom/path/workspace
 ```
 
+### 6.2.1 全局配置文件
+
+**文件位置**: `~/.agent-swarm/config.json`
+
+**配置内容**:
+```json
+{
+  "apiKeys": {
+    "anthropic": "sk-ant-...",
+    "openai": "sk-..."
+  },
+  "workspace": "/custom/path/workspace"
+}
+```
+
+### 6.2.2 API 密钥配置方式
+
+支持三种配置方式，按优先级加载：
+
+| 优先级 | 方式 | 位置 | 适用场景 |
+|--------|------|------|----------|
+| 1 | 环境变量 | `ANTHROPIC_API_KEY` | CI/CD、向后兼容 |
+| 2 | 共享配置 | `~/.agent-swarm/config.json` | 多 Agent 共享密钥 |
+| 3 | Agent 专用 | `~/.agent-swarm/agents/{id}/config.json` | Agent 独立密钥 |
+
+**Agent 专用密钥配置**（在 Agent config.json 中）:
+```json
+{
+  "id": "my-agent",
+  "name": "My Agent",
+  "model": {
+    "provider": "anthropic",
+    "id": "claude-sonnet-4-6"
+  },
+  "apiKey": "sk-ant-...",     // Agent 专用密钥（可选）
+  "channels": ["cli"]
+}
+```
+
+### 6.2.3 AI Native 交互流程
+
+创建 Agent 时，Claude 询问用户密钥配置方式：
+
+```
+Claude: 请选择 API 密钥配置方式：
+A. 使用共享密钥（~/.agent-swarm/config.json）
+B. 使用 Agent 专用密钥
+C. 手动配置（稍后自行填写）
+
+用户: A
+
+Claude: 已使用共享密钥创建 Agent。
+```
+
 ### 6.3 Workspace 目录结构
 
 ```
 ~/.agent-swarm/                    # Workspace 根目录
+├── config.json                    # 全局配置（API 密钥等）
+│
 ├── .claude/                       # AI Native 技能目录
 │   └── skills/                    # Claude 创建/配置 Agent 的技能
 │       ├── create-agent.md        # 如何创建 Agent
 │       ├── configure-agent.md     # 如何配置 Agent
 │       └── add-channel.md         # 如何添加渠道
-│
-├── config.yaml                    # 全局配置（可选）
 │
 ├── agents/                        # Agent 配置目录
 │   ├── README.md                  # Agent 创建指南
@@ -641,7 +695,285 @@ const message: Message = {
 
 ---
 
-## 9. 安全考量
+## 9. pi-agent-core 集成
+
+### 9.1 项目定位
+
+**Agent Swarm 是"任务型"多 Agent 框架**，不只是"对话型"**。
+
+**职责边界**：
+
+| 层级 | 职责 | 实现方 |
+|------|------|--------|
+| **多 Agent 编排** | 路由、协作、生命周期 | Agent Swarm |
+| **消息持久化** | Session、Context 存储 | Agent Swarm |
+| **渠道适配** | CLI、钉钉、飞书 | Agent Swarm |
+| **工具注册** | 全局工具定义 | Agent Swarm |
+| **单 Agent 执行** | LLM 调用、Tool 执行 | pi-agent-core |
+| **模型抽象** | 多 Provider 支持 | pi-ai |
+
+### 9.2 P0 功能： Tool 调用
+
+**必要性**: Agent 的核心价值是"能做事"，不只是"能聊天"。
+
+#### 9.2.1 工具注册表设计
+
+```typescript
+// src/tools/registry.ts
+import type { AgentTool } from '@mariozechner/pi-agent-core';
+import { Type } from '@sinclair/typebox';
+
+/**
+ * 全局工具注册表
+ */
+class ToolRegistry {
+  private tools = new Map<string, AgentTool>();
+
+  /**
+   * 注册工具
+   */
+  register(tool: AgentTool): void {
+    if (this.tools.has(tool.name)) {
+      throw new Error(`Tool already registered: ${tool.name}`);
+    }
+    this.tools.set(tool.name, tool);
+  }
+
+  /**
+   * 获取所有工具
+   */
+  getAll(): AgentTool[] {
+    return Array.from(this.tools.values());
+  }
+
+  /**
+   * 按名称获取工具
+   */
+  get(name: string): AgentTool | undefined {
+    return this.tools.get(name);
+  }
+
+  /**
+   * 移除工具
+   */
+  remove(name: string): boolean {
+    return this.tools.delete(name);
+  }
+}
+
+export const toolRegistry = new ToolRegistry();
+```
+
+#### 9.2.2 内置工具
+
+| 工具名 | 功能 | 参数 |
+|--------|------|------|
+| `search_web` | 网络搜索 | query: string |
+| `read_file` | 读取文件 | path: string |
+| `write_file` | 写入文件 | path: string, content: string |
+| `execute_command` | 执行命令 | command: string, timeout?: number |
+| `query_database` | 数据库查询 | sql: string |
+
+#### 9.2.3 工具配置方式
+
+**方式一：全局注册（推荐）**
+```typescript
+// 启动时注册
+toolRegistry.register({
+  name: 'search_web',
+  description: '搜索网络信息',
+  parameters: Type.Object({
+    query: Type.String({ description: '搜索关键词' }),
+  }),
+  execute: async (args) => {
+    const results = await searchAPI(args.query);
+    return JSON.stringify(results);
+  },
+});
+```
+
+**方式二：Agent 配置文件**
+```json
+// ~/.agent-swarm/agents/my-agent/config.json
+{
+  "id": "my-agent",
+  "tools": ["search_web", "read_file"]  // 引用已注册的工具
+}
+```
+
+#### 9.2.4 AgentManager 集成
+
+```typescript
+// AgentManager.spawn()
+import { toolRegistry } from '../tools/registry.js';
+
+const agent = new Agent({
+  initialState: {
+    systemPrompt,
+    model: getModel(provider, modelId),
+    thinkingLevel: 'medium',
+    tools: this.getAgentTools(config),  // 注入工具
+    messages: [],
+  },
+  getApiKey: async (provider) => {
+    const result = await getConfigLoader().getApiKey(provider, config.model?.apiKey);
+    return result?.key;
+  },
+});
+
+// 获取 Agent 配置的工具
+private getAgentTools(config: AgentConfig): AgentTool[] {
+  if (!config.tools || config.tools.length === 0) {
+    return toolRegistry.getAll();  // 默认使用全部工具
+  }
+  return config.tools
+    .map(name => toolRegistry.get(name))
+    .filter((t): t is AgentTool => t !== undefined);
+}
+```
+
+### 9.3 P0 功能： 上下文管理
+
+**必要性**: 长对话会超出模型窗口限制，需要裁剪。
+
+#### 9.3.1 上下文裁剪策略
+
+| 策略 | 描述 | 适用场景 |
+|------|------|----------|
+| **滑动窗口** | 保留最近 N 条消息 | 通用 |
+| **摘要压缩** | 将旧消息压缩为摘要 | 超长对话 |
+| **优先级保留** | 保留 system + 最近 user + assistant | 紧凑窗口 |
+
+**推荐**: 先实现滑动窗口，后续支持可配置策略。
+
+#### 9.3.2 滑动窗口实现
+
+```typescript
+// AgentManager.spawn()
+const MAX_CONTEXT_MESSAGES = 50;  // 可配置
+
+const agent = new Agent({
+  initialState: { /* ... */ },
+  // 上下文转换：滑动窗口
+  transformContext: async (messages, signal) => {
+    if (messages.length <= MAX_CONTEXT_MESSAGES) {
+      return messages;
+    }
+    // 保留第一条（通常是 system prompt）+ 最近 N-1 条
+    const first = messages[0];
+    const recent = messages.slice(-(MAX_CONTEXT_MESSAGES - 1));
+    return [first, ...recent];
+  },
+});
+```
+
+#### 9.3.3 高级策略（未来扩展）
+
+```typescript
+interface ContextStrategy {
+  name: string;
+  transform: (messages: AgentMessage[], config: ContextConfig) => Promise<AgentMessage[]>;
+}
+
+interface ContextConfig {
+  maxMessages: number;
+  strategy: 'sliding' | 'summary' | 'priority';
+  preserveSystem?: boolean;
+}
+```
+
+### 9.4 不需要的功能及理由
+
+| 能力 | 为什么不需要 |
+|------|--------------|
+| **Steering** | 多 Agent 协作通过消息路由（to/oncomplete）更灵活，不需要单 Agent 内部干预 |
+| **Follow-up** | 已通过 workflow.oncomplete 实现 |
+| **Proxy 模式** | 企业内网部署是后期需求，当前直接调用 LLM API |
+
+### 9.5 完整集成代码
+
+```typescript
+// AgentManager.spawn()
+async spawn(agentId: string): Promise<void> {
+  const config = await this.loadConfig(agentId);
+  if (!config) {
+    throw new Error(`Agent not found: ${agentId}`);
+  }
+
+  // 获取 API Key
+  const apiKeyResult = await getConfigLoader().getApiKey(
+    config.model.provider,
+    config.model.apiKey
+  );
+  if (!apiKeyResult) {
+    throw new Error(`API key not found for ${config.model.provider}`);
+  }
+
+  // 加载 Skills
+  const skillsPath = join(this.agentsPath, agentId, 'skills');
+  const skillsLoader = new SkillLoader(skillsPath);
+  const skills = await skillsLoader.getMetadata();
+
+  // 构建 System Prompt
+  const systemPrompt = await this.buildSystemPrompt(agentId, skills);
+
+  // 创建 Agent
+  const agent = new Agent({
+    initialState: {
+      systemPrompt,
+      model: getModel(config.model.provider, config.model.id),
+      thinkingLevel: config.thinkingLevel ?? 'medium',
+      tools: this.getAgentTools(config),
+      messages: [],
+    },
+    // 动态 API Key
+    getApiKey: async () => apiKeyResult.key,
+    // 上下文裁剪
+    transformContext: async (messages) => {
+      const maxMessages = config.maxContextMessages ?? 50;
+      if (messages.length <= maxMessages) return messages;
+      const first = messages[0];
+      const recent = messages.slice(-(maxMessages - 1));
+      return [first, ...recent];
+    },
+  });
+
+  this.agents.set(agentId, agent);
+  this.configs.set(agentId, config);
+}
+
+// 获取 Agent 工具
+private getAgentTools(config: AgentConfig): AgentTool[] {
+  if (!config.tools || config.tools.length === 0) {
+    return toolRegistry.getAll();
+  }
+  return config.tools
+    .map(name => toolRegistry.get(name))
+    .filter((t): t is AgentTool => t !== undefined);
+}
+```
+
+### 9.6 配置扩展
+
+**Agent config.json 新增字段**:
+
+```json
+{
+  "id": "my-agent",
+  "name": "我的助手",
+  "model": { "provider": "anthropic", "id": "claude-sonnet-4-6" },
+  "channels": ["cli"],
+
+  // 新增字段
+  "tools": ["search_web", "read_file"],
+  "thinkingLevel": "medium",
+  "maxContextMessages": 50
+}
+```
+
+---
+
+## 10. 安全考量
 
 - API Key 通过环境变量配置，不硬编码
 - Session ID 格式防止遍历攻击

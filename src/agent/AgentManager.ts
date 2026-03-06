@@ -14,6 +14,7 @@ import { getModel } from '@mariozechner/pi-ai';
 import type { AgentConfig, AgentState, AgentCapability } from './types.js';
 import type { Message } from '../message/types.js';
 import { SkillLoader } from './skills.js';
+import { getConfigLoader } from '../config.js';
 
 /**
  * Mock 响应生成器类型
@@ -129,6 +130,23 @@ export class AgentManager {
       throw new Error(`Agent not found: ${agentId}`);
     }
 
+    // 验证 API 密钥是否可用（按优先级：Agent 专�� > 全局配置 > 环境变量）
+    const configLoader = getConfigLoader();
+    const apiKeyResult = await configLoader.getApiKey(config.model.provider, config.model.apiKey);
+
+    if (!apiKeyResult) {
+      throw new Error(
+        `API key not found for provider "${config.model.provider}". ` +
+          `Please set environment variable ${config.model.provider.toUpperCase()}_API_KEY, ` +
+          `or add it to ~/.agent-swarm/config.json, ` +
+          `or configure it in the agent's config.json`
+      );
+    }
+
+    console.log(
+      `[AgentManager] API key available for ${config.model.provider} from: ${apiKeyResult.source}`
+    );
+
     // 创建 SkillLoader
     const skillsPath = join(this.agentsPath, agentId, 'skills');
     const skillsLoader = new SkillLoader(skillsPath);
@@ -152,6 +170,14 @@ export class AgentManager {
         isStreaming: false,
         streamMessage: null,
         pendingToolCalls: new Set(),
+      },
+      // 每次调用 LLM 时动态获取 API 密钥
+      getApiKey: async () => {
+        const result = await getConfigLoader().getApiKey(
+          config.model.provider,
+          config.model.apiKey
+        );
+        return result?.key;
       },
     });
 

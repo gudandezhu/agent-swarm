@@ -8,10 +8,9 @@ import type { OutgoingMessage } from './types.js';
 import {
   DingTalkMessageStore,
   DingTalkMessageStatus,
-  type QueuedMessage,
-  type SendResult,
   type QueueStats,
   type DeadLetterMessage,
+  type SendResult,
 } from './DingTalkMessageStore.js';
 
 /**
@@ -118,8 +117,8 @@ export class DingTalkRetryManager {
       };
     }
 
-    // 加入队列
-    const queuedMessage = await this.store.enqueue(message, id);
+    // 加入队列（确认消息已入队）
+    await this.store.enqueue(message, id);
 
     try {
       // 尝试发送
