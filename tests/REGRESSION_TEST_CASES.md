@@ -1,8 +1,8 @@
 # Agent Swarm 回归测试用例
 
-**版本**: v1.5.0
+**版本**: v1.6.0
 **更新日期**: 2026-03-06
-**测试范围**: Agent Swarm 核心功能回归测试
+**测试范围**: Agent Swarm 核心功能回归测试 + 钉钉/飞书消息重试机制
 
 ---
 
@@ -28,7 +28,10 @@
 | AgentManager | 4 | P0-P1 | ✅ |
 | LLM Mock | 3 | P0 | ✅ |
 | Channel | 3 | P1-P2 | ✅ |
-| E2E | 2 | P0-P1 | ✅ |
+| RetryScheduler | 7 | P0-P1 | ✅ |
+| DingTalkChannel | 4 | P0-P1 | ✅ |
+| FeishuChannel | 3 | P0-P1 | ✅ |
+| E2E | 3 | P0-P1 | ✅ |
 | Performance | 2 | P1-P2 | ❌ 未实现 |
 
 ---
@@ -130,11 +133,62 @@ handleError()统一错误处理
 
 ---
 
+### TC-RS-001: RetryScheduler启动停止（P0）
+start()启动调度器，stop()停止，重复启动停止无副作用
+
+### TC-RS-002: 超时消息重试（P0）
+检测超时消息，自动增加重试次数并重新发送
+
+### TC-RS-003: 失败消息重试（P0）
+检测失败消息，重新发送并更新状态为PROCESSING
+
+### TC-RS-004: 最大重试次数限制（P1）
+超过maxRetries的消息标记为DEAD_LETTER
+
+### TC-RS-005: 完成消息清理（P1）
+定期清理24小时前的COMPLETED消息
+
+### TC-RS-006: 错误处理（P1）
+扫描错误不中断调度器，记录错误日志
+
+### TC-RS-007: 配置自定义（P1）
+支持自定义interval、timeoutMs、maxRetries
+
+---
+
+### TC-DT-001: DingTalk消息发送失败重试（P0）
+发送失败后RetryScheduler自动重试，最多3次
+
+### TC-DT-002: DingTalk消息超时处理（P1）
+超时未确认自动重试，更新状态
+
+### TC-DT-003: DingTalk死信消息处理（P1）
+重试超限标记DEAD_LETTER，记录错误原因
+
+### TC-DT-004: DingTalk完整消息流程（P0）
+Webhook接收→处理→发送→重试→完成
+
+---
+
+### TC-FS-001: Feishu消息发送（P0）
+Event接收→处理→发送消息
+
+### TC-FS-002: Feishu错误处理（P1）
+发送失败记录错误，支持重试
+
+### TC-FS-003: FeishuSession管理（P0）
+正确生成sessionId，支持单聊群聊线程
+
+---
+
 ### TC-E2E-001: 完整消息流程（P0）
 外部消息→Channel→MessageBus→Agent→响应→Channel→外部
 
 ### TC-E2E-002: 多Agent协作（P1）
 Agent A发送消息给Agent B，协同处理
+
+### TC-E2E-003: 钉钉消息重试完整流程（P0）
+DingTalk消息发送失败→RetryScheduler重试→成功
 
 ---
 
@@ -163,6 +217,6 @@ Agent A发送消息给Agent B，协同处理
 
 ## 当前覆盖率状态（2026-03-06）
 
-- 整体覆盖率: 61.34% ❌ 目标80%
+- 整体覆盖率目标: 80%
 - 已达标: AgentManager(92%)、MessageBus(87%)、MessageRouter(91%)、ACKTracker(100%)、CLIChannel(100%)
-- 未达标: main.ts(0%)、config.ts(0%)、memory.ts(0%)、prompt.ts(0%)、JSONLMessageStore.ts(0%)、reliability/(0%)、DingTalkChannel.ts(0%)、FeishuChannel.ts(0%)
+- 待提升: main.ts、config.ts、memory.ts、prompt.ts、JSONLMessageStore.ts、reliability/、DingTalkChannel.ts、FeishuChannel.ts
