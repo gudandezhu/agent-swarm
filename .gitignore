@@ -5,3 +5,15 @@ dist/
 .env
 sessions/
 *.tsbuildinfo
+
+# 测试产物
+coverage/
+test-sessions*/
+test-agents*/
+*.test-temp
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
