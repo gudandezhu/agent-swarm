@@ -98,7 +98,7 @@ describe('E2E - 真实用户场景', () => {
         agentsPath,
         defaultAgent: testAgentId,
         mockResponse: async (message: Message) => {
-          return `Mock响应: ${message.payload?.text || ''}`;
+          return `Mock响应: ${message.payload?.data || ''}`;
         },
       });
 
@@ -114,8 +114,8 @@ describe('E2E - 真实用户场景', () => {
         agentsPath,
         defaultAgent: testAgentId,
         mockResponse: async (message: Message) => {
-          const text = message.payload?.text || '';
-          return `Agent已收到: ${text}`;
+          const data = message.payload?.data || '';
+          return `Agent已收到: ${data}`;
         },
       });
 
@@ -129,7 +129,7 @@ describe('E2E - 真实用户场景', () => {
         to: testAgentId,
         sessionId: 'cli:user123',
         type: 'request',
-        payload: { text: '测试消息' },
+        payload: { data: '测试消息' },
         ack: { required: false, timeout: 0, retry: 0 },
       };
 
