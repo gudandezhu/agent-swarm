@@ -6,7 +6,8 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { RetryScheduler } from '../src/reliability/RetryScheduler.js';
 import { MessageStatus } from '../src/core/IMessageStore.js';
-import type { IMessageStore, IMessageBus, PersistentMessage } from '../src/core/IMessageStore.js';
+import type { IMessageStore, PersistentMessage } from '../src/core/IMessageStore.js';
+import type { IMessageBus } from '../src/core/IMessageBus.js';
 import type { Message } from '../src/message/types.js';
 
 // Mock implementations
