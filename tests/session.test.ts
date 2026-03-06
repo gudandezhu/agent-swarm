@@ -4,8 +4,10 @@
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { JSONLSessionStore } from '../src/session/JSONLSessionStore.js';
-import { mkdir, rm } from 'fs/promises';
+import { mkdir } from 'fs/promises';
 import { join } from 'path';
+import { execSync } from 'child_process';
+import type { Message } from '../src/message/types.js';
 
 describe('JSONLSessionStore', () => {
   const testPath = join(process.cwd(), 'test-sessions');
@@ -19,7 +21,12 @@ describe('JSONLSessionStore', () => {
 
   afterEach(async () => {
     await store.destroy();
-    await rm(testPath, { recursive: true, force: true });
+    // 使用 rm -f 命令强制删除
+    try {
+      execSync(`rm -rf "${testPath}"`, { stdio: 'ignore' });
+    } catch {
+      // 忽略错误
+    }
   });
 
   describe('getOrCreate', () => {
@@ -65,14 +72,26 @@ describe('JSONLSessionStore', () => {
   });
 
   describe('addMessage', () => {
+    const createMessage = (id: string, sessionId: string): Message => ({
+      id,
+      timestamp: Date.now(),
+      version: '1.0',
+      from: 'user',
+      to: 'agent',
+      sessionId,
+      type: 'request',
+      payload: { data: `Message ${id}` },
+      ack: { required: true, timeout: 30000, retry: 3 },
+    });
+
     it('应该添加消息到上下文', async () => {
       const session = await store.getOrCreate({
         channelId: 'test',
         channelUserId: 'user1',
       });
 
-      await store.addMessage(session.id, 'msg1');
-      await store.addMessage(session.id, 'msg2');
+      await store.addMessage(session.id, createMessage('msg1', session.id));
+      await store.addMessage(session.id, createMessage('msg2', session.id));
 
       const updated = await store.load(session.id);
       expect(updated?.context.messages).toEqual(['msg1', 'msg2']);
@@ -86,7 +105,7 @@ describe('JSONLSessionStore', () => {
 
       // 添加超过限制的消息
       for (let i = 0; i < 25; i++) {
-        await store.addMessage(session.id, `msg${i}`);
+        await store.addMessage(session.id, createMessage(`msg${i}`, session.id));
       }
 
       const updated = await store.load(session.id);

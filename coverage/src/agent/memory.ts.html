@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/42</span>
+                <span class='fraction'>42/42</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>0/1</span>
+                <span class='fraction'>3/3</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>0/1</span>
+                <span class='fraction'>2/2</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/42</span>
+                <span class='fraction'>42/42</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line low'></div>
+    <div class='status-line high'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -105,90 +105,90 @@
 <a name='L40'></a><a href='#L40'>40</a>
 <a name='L41'></a><a href='#L41'>41</a>
 <a name='L42'></a><a href='#L42'>42</a>
-<a name='L43'></a><a href='#L43'>43</a></td><td class="line-coverage quiet"><span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js"><span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" ><span class="branch-0 cbranch-no" title="branch not covered" >/**</span></span></span>
-<span class="cstat-no" title="statement not covered" > * Agent Memory 管理</span>
-<span class="cstat-no" title="statement not covered" > */</span>
-<span class="cstat-no" title="statement not covered" ></span>
-<span class="cstat-no" title="statement not covered" >import { promises as fs } from 'fs';</span>
-<span class="cstat-no" title="statement not covered" >import { join } from 'path';</span>
-<span class="cstat-no" title="statement not covered" ></span>
-<span class="cstat-no" title="statement not covered" >const MEMORY_HEADER = `# Agent Memory</span>
-<span class="cstat-no" title="statement not covered" ></span>
-<span class="cstat-no" title="statement not covered" >## 环境</span>
-<span class="cstat-no" title="statement not covered" >\`\`\`</span>
-<span class="cstat-no" title="statement not covered" >{服务器信息、凭证、平台域名}</span>
-<span class="cstat-no" title="statement not covered" >\`\`\`</span>
-<span class="cstat-no" title="statement not covered" ></span>
-<span class="cstat-no" title="statement not covered" >## 技能</span>
-<span class="cstat-no" title="statement not covered" >{重复工作抽象为技能}</span>
-<span class="cstat-no" title="statement not covered" ></span>
-<span class="cstat-no" title="statement not covered" >## 规则</span>
-<span class="cstat-no" title="statement not covered" >{反复强调的要求}</span>
-<span class="cstat-no" title="statement not covered" ></span>
-<span class="cstat-no" title="statement not covered" >## 常用命令</span>
-<span class="cstat-no" title="statement not covered" >{经常使用的命令}</span>
-<span class="cstat-no" title="statement not covered" >`;</span>
-<span class="cstat-no" title="statement not covered" ></span>
-<span class="cstat-no" title="statement not covered" >export async function loadMemory(agentsPath: string, agentId: string): Promise&lt;string&gt; {</span>
-<span class="cstat-no" title="statement not covered" >  const memoryPath = join(agentsPath, agentId, 'MEMORY.md');</span>
-<span class="cstat-no" title="statement not covered" ></span>
-<span class="cstat-no" title="statement not covered" >  try {</span>
-<span class="cstat-no" title="statement not covered" >    return await fs.readFile(memoryPath, 'utf-8');</span>
-<span class="cstat-no" title="statement not covered" >  } catch {</span>
-<span class="cstat-no" title="statement not covered" >    // 创建默认记忆文件</span>
-<span class="cstat-no" title="statement not covered" >    await fs.mkdir(join(agentsPath, agentId), { recursive: true });</span>
-<span class="cstat-no" title="statement not covered" >    await fs.writeFile(memoryPath, MEMORY_HEADER, 'utf-8');</span>
-<span class="cstat-no" title="statement not covered" >    return MEMORY_HEADER;</span>
-<span class="cstat-no" title="statement not covered" >  }</span>
-<span class="cstat-no" title="statement not covered" >}</span>
-<span class="cstat-no" title="statement not covered" ></span>
-<span class="cstat-no" title="statement not covered" >export async function appendMemory(agentsPath: string, agentId: string, content: string): Promise&lt;void&gt; {</span>
-<span class="cstat-no" title="statement not covered" >  const memoryPath = join(agentsPath, agentId, 'MEMORY.md');</span>
-<span class="cstat-no" title="statement not covered" >  const existing = await loadMemory(agentsPath, agentId);</span>
-<span class="cstat-no" title="statement not covered" >  await fs.writeFile(memoryPath, existing + '\n' + content + '\n', 'utf-8');</span>
-<span class="cstat-no" title="statement not covered" >}</span>
+<a name='L43'></a><a href='#L43'>43</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">/**
+ * Agent Memory 管理
+ */
+&nbsp;
+import { promises as fs } from 'fs';
+import { join } from 'path';
+&nbsp;
+const MEMORY_HEADER = `# Agent Memory
+&nbsp;
+## 环境
+\`\`\`
+{服务器信息、凭证、平台域名}
+\`\`\`
+&nbsp;
+## 技能
+{重复工作抽象为技能}
+&nbsp;
+## 规则
+{反复强调的要求}
+&nbsp;
+## 常用命令
+{经常使用的命令}
+`;
+&nbsp;
+export async function loadMemory(agentsPath: string, agentId: string): Promise&lt;string&gt; {
+  const memoryPath = join(agentsPath, agentId, 'MEMORY.md');
+&nbsp;
+  try {
+    return await fs.readFile(memoryPath, 'utf-8');
+  } catch {
+    // 创建默认记忆文件
+    await fs.mkdir(join(agentsPath, agentId), { recursive: true });
+    await fs.writeFile(memoryPath, MEMORY_HEADER, 'utf-8');
+    return MEMORY_HEADER;
+  }
+}
+&nbsp;
+export async function appendMemory(agentsPath: string, agentId: string, content: string): Promise&lt;void&gt; {
+  const memoryPath = join(agentsPath, agentId, 'MEMORY.md');
+  const existing = await loadMemory(agentsPath, agentId);
+  await fs.writeFile(memoryPath, existing + '\n' + content + '\n', 'utf-8');
+}
 &nbsp;</pre></td></tr></table></pre>
 
                 <div class='push'></div><!-- for sticky footer -->
@@ -196,7 +196,7 @@
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-03-05T16:10:35.696Z
+                at 2026-03-06T06:40:22.654Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

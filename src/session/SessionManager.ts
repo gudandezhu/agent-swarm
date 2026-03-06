@@ -3,10 +3,10 @@
  */
 
 import type { Session, SessionCreateOptions } from './types.js';
-import type { JSONLSessionStore } from './JSONLSessionStore.js';
+import type { ISessionStore } from '../core/ISessionStore.js';
 
 export class SessionManager {
-  constructor(private store: JSONLSessionStore) {}
+  constructor(private store: ISessionStore) {}
 
   async getOrCreate(options: SessionCreateOptions): Promise<Session> {
     return this.store.getOrCreate(options);
@@ -17,26 +17,29 @@ export class SessionManager {
   }
 
   async touch(sessionId: string): Promise<void> {
-    const session = await this.store.load(sessionId);
-    if (session) {
+    await this.store.update(sessionId, (session) => {
       session.lastActiveAt = Date.now();
-    }
+    });
   }
 
   async reset(sessionId: string): Promise<void> {
-    const session = await this.store.load(sessionId);
-    if (session) {
+    await this.store.update(sessionId, (session) => {
       session.context.messages = [];
       session.context.variables = {};
       session.context.agentStates.clear();
-    }
+    });
   }
 
   async cleanup(): Promise<number> {
     return this.store.cleanup();
   }
 
-  async stats(): Promise<{ total: number; active: number; expired: number }> {
-    return { total: 0, active: 0, expired: 0 };
+  async stats(): Promise<{
+    totalSessions: number;
+    totalMessages: number;
+    oldestSession?: Date;
+    newestSession?: Date;
+  }> {
+    return this.store.stats();
   }
 }

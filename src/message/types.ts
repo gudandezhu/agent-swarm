@@ -4,9 +4,16 @@
 
 export type MessageType = 'request' | 'response' | 'event' | 'error';
 
+export interface WorkflowConfig {
+  oncomplete?: string | string[]; // 完成后发消息给谁
+  onerror?: string | string[]; // 失败后发消息给谁
+}
+
 export interface MessagePayload {
   task?: string;
   data?: unknown;
+  context?: string; // 会话上下文（context.md 内容）
+  workflow?: WorkflowConfig; // 工作流控制
 }
 
 export interface MessageACK {

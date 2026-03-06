@@ -13,6 +13,7 @@ export class CLIChannel extends BaseChannel {
   private rl?: ReturnType<typeof createInterface>;
   private currentUserId = 'cli-user';
   private currentConversationId?: string;
+  private lineHandler?: (input: string) => void;
 
   async start(): Promise<void> {
     if (this.started) return;
@@ -25,7 +26,7 @@ export class CLIChannel extends BaseChannel {
     console.log('\n🤖 Agent Swarm CLI');
     console.log('输入消息发送给 Agent，输入 /exit 退出\n');
 
-    this.rl.on('line', async (input) => {
+    this.lineHandler = async (input) => {
       const trimmed = input.trim();
 
       if (trimmed === '/exit') {
@@ -56,7 +57,9 @@ export class CLIChannel extends BaseChannel {
 
       await this.handleMessage(message);
       this.prompt();
-    });
+    };
+
+    this.rl.on('line', this.lineHandler);
 
     this.started = true;
     this.prompt();
@@ -65,6 +68,10 @@ export class CLIChannel extends BaseChannel {
   async stop(): Promise<void> {
     if (!this.started) return;
 
+    if (this.rl && this.lineHandler) {
+      this.rl.off('line', this.lineHandler);
+      this.lineHandler = undefined;
+    }
     this.rl?.close();
     this.started = false;
   }

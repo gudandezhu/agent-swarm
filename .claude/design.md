@@ -126,7 +126,9 @@ agent-id/
 Channel 层 → Session 层 → Message 层 → AgentManager 层 → pi-mono Agent 层
 ```
 
-### 路由设计（无 Router 层）
+### 路由设计
+
+**原则**: 通过 `to` 字段直接指定目标，无需独立 Router 层。路由逻辑内置于 `AgentSwarm.handleMessage()`。
 
 | 场景 | 方案 |
 |------|------|
@@ -134,6 +136,130 @@ Channel 层 → Session 层 → Message 层 → AgentManager 层 → pi-mono Age
 | Agent → Agent | `to: "agent-id"` 直接指定 |
 | 响应路由 | `replyTo` 字段 |
 | 广播 | `to: ["a", "b", "c"]` |
+
+> **注意**: 项目中存在 `MessageRouter.ts` 文件，这是历史遗留代码。路由逻辑已在 `AgentSwarm` 中实现，`MessageRouter` 应被移除。
+
+---
+
+## Agent 协作能力
+
+### 任务编排（Workflow）
+
+通过 `workflow` 字段定义轻量级任务链：
+
+```typescript
+interface MessagePayload {
+  task?: string;
+  data?: unknown;
+  context?: string;
+  // 工作流控制
+  workflow?: {
+    oncomplete?: string | string[];  // 完成后发消息给谁
+    onerror?: string | string[];     // 失败后发消息给谁
+  };
+}
+```
+
+**使用示例**:
+
+```typescript
+// 链式调用: crawler → analyzer → reporter
+await messageBus.send({
+  from: 'user',
+  to: 'crawler',
+  payload: {
+    task: '爬取数据',
+    workflow: {
+      oncomplete: 'analyzer'  // 爬取完成后发给分析器
+    }
+  }
+});
+
+// 分析器配置继续传递
+await messageBus.send({
+  from: 'crawler',
+  to: 'analyzer',
+  payload: {
+    data: crawledData,
+    workflow: {
+      oncomplete: 'reporter'  // 分析完成后发给报告器
+    }
+  }
+});
+```
+
+**实现位置**: `AgentSwarm.sendToAgent()` 方法末尾
+
+### Agent 能力发现
+
+让 Agent 可以查询其他 Agent 的能力：
+
+```typescript
+interface AgentCapability {
+  agentId: string;
+  name: string;
+  skills: Array<{ name: string; description: string }>;
+}
+
+class AgentManager {
+  // 获取单个 Agent 能力
+  async getCapabilities(agentId: string): Promise<AgentCapability | null>;
+
+  // 列出所有 Agent 能力
+  async listCapabilities(): Promise<AgentCapability[]>;
+}
+```
+
+**使用示例**:
+
+```typescript
+// 查询特定 Agent 能力
+const caps = await agentManager.getCapabilities('crawler');
+console.log(caps.skills); // [{ name: 'web-scraper', description: '...' }]
+
+// 发现具有特定能力的 Agent
+const allCaps = await agentManager.listCapabilities();
+const scrapers = allCaps.filter(c =>
+  c.skills.some(s => s.name.includes('scraper'))
+);
+```
+
+### 协作上下文（共享工作空间）
+
+多 Agent 协作时共享状态和数据：
+
+```typescript
+interface CollaborationContext {
+  collaborationId: string;              // 协作会话 ID
+  participants: string[];               // 参与的 Agent 列表
+  sharedState: Record<string, unknown>; // 共享状态
+  artifacts: Map<string, unknown>;      // 协作产物
+  createdAt: number;
+  updatedAt: number;
+}
+```
+
+**存储**: 扩展 Session 结构
+
+```typescript
+interface Session {
+  // ... 现有字段
+  collaboration?: CollaborationContext;  // 可选的协作上下文
+}
+```
+
+**使用示例**:
+
+```typescript
+// Agent A 存储中间结果
+await sessionStore.updateCollaboration(sessionId, {
+  artifacts: { 'crawled-data': data }
+});
+
+// Agent B 读取中间结果
+const collab = await sessionStore.getCollaboration(sessionId);
+const data = collab.artifacts.get('crawled-data');
+```
 
 ---
 
@@ -179,6 +305,12 @@ interface Message {
   payload: {
     task?: string;
     data?: unknown;
+    context?: string;
+    // 工作流控制（轻量级任务编排）
+    workflow?: {
+      oncomplete?: string | string[];  // 完成后发消息给谁
+      onerror?: string | string[];     // 失败后发消息给谁
+    };
   };
 
   // ACK（仅确认"收到"，不等待业务完成）
@@ -231,6 +363,13 @@ interface AgentConfig {
   channels: string[];
 }
 
+// Agent 能力描述
+interface AgentCapability {
+  agentId: string;
+  name: string;
+  skills: Array<{ name: string; description: string }>;
+}
+
 class AgentManager {
   private agents = new Map<string, Agent>();
 
@@ -250,6 +389,10 @@ class AgentManager {
     }
     return this.agents.get(id)!;
   }
+
+  // 能力发现
+  async getCapabilities(agentId: string): Promise<AgentCapability | null>;
+  async listCapabilities(): Promise<AgentCapability[]>;
 }
 ```
 
@@ -464,4 +607,4 @@ pi-mono 会自动：
 | 添加 | 追加到文件末尾 |
 | 修改 | 均可修改       |
 
-**版本**: v0.5.0 | **更新**: 2026-03-05
+**版本**: v0.6.0 | **更新**: 2026-03-06

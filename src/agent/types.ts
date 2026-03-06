@@ -24,6 +24,16 @@ export interface AgentState {
   lastUsedAt: number;
 }
 
+/**
+ * Agent 能力描述
+ */
+export interface AgentCapability {
+  agentId: string;
+  name: string;
+  description?: string;
+  skills: Array<{ name: string; description: string }>;
+}
+
 export interface AgentMessageOptions {
   sessionId: string;
   to?: string | string[]; // 转发给其他 Agent

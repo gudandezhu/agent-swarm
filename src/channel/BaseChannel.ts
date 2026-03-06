@@ -49,17 +49,33 @@ export abstract class BaseChannel implements IChannel {
    */
   toOutgoing(message: Message): OutgoingMessage {
     const parts = message.sessionId.split(':');
+    if (parts.length < 2) {
+      throw new Error(`Invalid sessionId format: ${message.sessionId}`);
+    }
+
     const channelId = parts[0];
     const userId = parts[parts.length - 1];
     const conversationId = parts.length > 2 ? parts[1] : undefined;
     const threadId = parts.length > 3 ? parts[2] : undefined;
+
+    let content: string;
+    if (typeof message.payload.data === 'string') {
+      content = message.payload.data;
+    } else {
+      try {
+        content = JSON.stringify(message.payload.data);
+      } catch (error) {
+        console.error('[BaseChannel] Failed to stringify payload.data:', error);
+        content = String(message.payload.data ?? '');
+      }
+    }
 
     return {
       channelId,
       userId,
       conversationId,
       threadId,
-      content: typeof message.payload.data === 'string' ? message.payload.data : JSON.stringify(message.payload.data),
+      content,
     };
   }
 

@@ -1,0 +1,13 @@
+# E2E 测试 Docker Compose 配置
+services:
+  e2e-test:
+    build:
+      context: .
+      dockerfile: Dockerfile.e2e
+    container_name: agent-swarm-e2e
+    volumes:
+      # 挂载测试结果
+      - ./coverage:/app/coverage
+    environment:
+      - NODE_ENV=test
+    command: npm test -- --run --coverage

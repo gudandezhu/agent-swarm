@@ -4,6 +4,13 @@
 
 import { EventEmitter } from 'events';
 import type { Message, MessageHandler, MessageOptions } from './types.js';
+import type {
+  IMessageBus,
+  SendOptions,
+  MessageBusStats,
+  HealthStatus,
+} from '../core/IMessageBus.js';
+import { ACKTracker } from './ACKTracker.js';
 
 export type BusEvent = 'message' | 'error' | 'sent';
 
@@ -12,10 +19,19 @@ export interface MessageBusOptions {
   defaultTimeout?: number;
 }
 
-export class MessageBus extends EventEmitter {
+export class MessageBus extends EventEmitter implements IMessageBus {
   private handlers = new Map<string, Set<MessageHandler>>();
   private pendingMessages = new Map<string, Promise<Message | null>>();
   private options: Required<MessageBusOptions>;
+  private ackTracker: ACKTracker;
+  private started = true; // 默认启动，向后兼容
+  // 统计计数器
+  private stats: MessageBusStats = {
+    messagesSent: 0,
+    messagesReceived: 0,
+    messagesProcessing: 0,
+    errors: 0,
+  };
 
   constructor(options: MessageBusOptions = {}) {
     super();
@@ -23,6 +39,7 @@ export class MessageBus extends EventEmitter {
       maxRetries: options.maxRetries ?? 3,
       defaultTimeout: options.defaultTimeout ?? 30000,
     };
+    this.ackTracker = new ACKTracker();
     this.setMaxListeners(1000);
   }
 
@@ -55,25 +72,17 @@ export class MessageBus extends EventEmitter {
   /**
    * 发送消息
    */
-  async send(options: MessageOptions): Promise<Message> {
-    const message: Message = {
-      id: this.generateId(),
-      timestamp: Date.now(),
-      version: '1.0',
-      from: options.from,
-      to: options.to,
-      sessionId: options.sessionId,
-      type: options.type ?? 'request',
-      payload: options.payload,
-      ack: {
-        required: true,
-        timeout: this.options.defaultTimeout,
-        retry: this.options.maxRetries,
-        ...options.ack,
-      },
-      correlationId: options.correlationId,
-      replyTo: options.replyTo,
-    };
+  async send(message: Message, _options?: SendOptions): Promise<void> {
+    if (!this.started) {
+      throw new Error('MessageBus not started. Call start() first.');
+    }
+
+    // 确保 ack 属性存在（向后兼容）
+    if (!message.ack) {
+      message.ack = { required: false, timeout: 0, retry: 0 };
+    }
+
+    this.stats.messagesSent++;
 
     // 触发发送事件
     this.emit('sent', message);
@@ -85,6 +94,51 @@ export class MessageBus extends EventEmitter {
     // 等待所有投递完成（或超时）
     await Promise.allSettled(deliveryPromises);
 
+    // 如果需要 ACK，等待确认
+    if (message.ack.required && message.ack.timeout > 0) {
+      await this.ackTracker.waitForACK(message, async (_msg, retryCount) => {
+        // 重试逻辑
+        if (retryCount < message.ack.retry) {
+          return true; // 继续重试
+        }
+        return false; // 放弃重试
+      });
+    }
+  }
+
+  /**
+   * 发送消息（兼容旧的 sendOptions API）
+   *
+   * 注意：此方法不等待 ACK 确认，即使配置了 required: true
+   */
+  async sendWithOptions(options: MessageOptions): Promise<Message> {
+    // 创建返回的消息对象（保留原始 ACK 配置）
+    const message: Message = {
+      id: this.generateId(),
+      timestamp: Date.now(),
+      version: '1.0',
+      from: options.from,
+      to: options.to,
+      sessionId: options.sessionId,
+      type: options.type ?? 'request',
+      payload: options.payload,
+      ack: {
+        required: false, // 兼容旧 API，默认不需要 ACK
+        timeout: 0,
+        retry: 0,
+        ...options.ack,
+      },
+      correlationId: options.correlationId,
+      replyTo: options.replyTo,
+    };
+
+    // 创建用于发送的消息副本（禁用 ACK 等待）
+    const messageForSending: Message = {
+      ...message,
+      ack: { required: false, timeout: 0, retry: 0 },
+    };
+
+    await this.send(messageForSending);
     return message;
   }
 
@@ -92,7 +146,7 @@ export class MessageBus extends EventEmitter {
    * 发送并等待响应
    */
   async sendAndWait(options: MessageOptions, timeout?: number): Promise<Message | null> {
-    const message = await this.send(options);
+    const message = await this.sendWithOptions(options);
 
     // 等待响应
     const correlationId = message.id;
@@ -117,17 +171,28 @@ export class MessageBus extends EventEmitter {
    * 投递消息到特定 Agent
    */
   private async deliverTo(agentId: string, message: Message): Promise<void> {
-    const handlers = this.handlers.get(agentId);
+    // 收集所有要调用的处理器
+    const allHandlers: MessageHandler[] = [];
 
-    if (!handlers || handlers.size === 0) {
+    // 1. 添加精确匹配的处理器
+    const exactHandlers = this.handlers.get(agentId);
+    if (exactHandlers) {
+      allHandlers.push(...Array.from(exactHandlers));
+    }
+
+    // 2. 添加通配符处理器（'*'）
+    const wildcardHandlers = this.handlers.get('*');
+    if (wildcardHandlers) {
+      allHandlers.push(...Array.from(wildcardHandlers));
+    }
+
+    if (allHandlers.length === 0) {
       this.emit('error', { message, error: new Error(`No handlers for agent: ${agentId}`) });
       return;
     }
 
     // 并发调用所有处理器
-    const promises = Array.from(handlers).map((handler) =>
-      this.safeExecute(agentId, handler, message)
-    );
+    const promises = allHandlers.map((handler) => this.safeExecute(agentId, handler, message));
 
     await Promise.allSettled(promises);
   }
@@ -135,12 +200,21 @@ export class MessageBus extends EventEmitter {
   /**
    * 安全执行处理器，捕获异常
    */
-  private async safeExecute(agentId: string, handler: MessageHandler, message: Message): Promise<void> {
+  private async safeExecute(
+    agentId: string,
+    handler: MessageHandler,
+    message: Message
+  ): Promise<void> {
+    this.stats.messagesProcessing++;
     try {
       await handler(message);
+      this.stats.messagesReceived++;
       this.emit('message', { agentId, message });
     } catch (error) {
+      this.stats.errors++;
       this.emit('error', { agentId, message, error });
+    } finally {
+      this.stats.messagesProcessing--;
     }
   }
 
@@ -162,11 +236,68 @@ export class MessageBus extends EventEmitter {
   }
 
   /**
-   * 清理
+   * 启动消息总线
    */
-  destroy(): void {
+  async start(): Promise<void> {
+    // 允许重新启动（在 stop 之后）
+    this.started = true;
+  }
+
+  /**
+   * 停止消息总线
+   */
+  async stop(): Promise<void> {
+    if (!this.started) {
+      return;
+    }
+    this.started = false;
+    this.ackTracker.destroy();
     this.handlers.clear();
     this.pendingMessages.clear();
     this.removeAllListeners();
+  }
+
+  /**
+   * 健康检查
+   */
+  async health(): Promise<HealthStatus> {
+    if (!this.started) {
+      return { status: 'unhealthy', details: { reason: 'Not started' } };
+    }
+
+    const errorRate = this.stats.messagesSent > 0 ? this.stats.errors / this.stats.messagesSent : 0;
+
+    if (errorRate > 0.1) {
+      return { status: 'degraded', details: { errorRate } };
+    }
+
+    return {
+      status: 'healthy',
+      details: {
+        subscribers: this.getSubscriberCount(),
+        errorRate,
+      },
+    };
+  }
+
+  /**
+   * 获取统计信息
+   */
+  getStats(): MessageBusStats {
+    return { ...this.stats };
+  }
+
+  /**
+   * 确认收到消息（供外部调用）
+   */
+  confirmACK(messageId: string, recipient: string): void {
+    this.ackTracker.confirm(messageId, recipient);
+  }
+
+  /**
+   * 清理（兼容旧 API）
+   */
+  destroy(): void {
+    this.stop();
   }
 }

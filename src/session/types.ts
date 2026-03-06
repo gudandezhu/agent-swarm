@@ -1,5 +1,7 @@
 /**
  * Session - 持久化上下文，跨消息保持状态
+ *
+ * 新设计：Session 关联多个 Agent，共享会话级上下文
  */
 
 export interface SessionContext {
@@ -21,7 +23,14 @@ export interface Session {
   lastActiveAt: number;
   expiredAt?: number; // 过期时间（30天未活动）
 
-  // 上下文（持久化）
+  // 关联的 Agent 列表（新）
+  agents: string[];
+
+  // 文件路径（新）
+  contextPath: string; // context.md 路径
+  messagesPath: string; // messages.jsonl 路径
+
+  // 上下文（运行时）
   context: SessionContext;
 }
 

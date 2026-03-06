@@ -76,13 +76,13 @@ describe('MessageBus', () => {
 
   describe('send', () => {
     it('应该生成唯一 ID', async () => {
-      const msg1 = await bus.send({
+      const msg1 = await bus.sendWithOptions({
         from: 'user',
         to: 'agent-1',
         sessionId: 'test',
         payload: {},
       });
-      const msg2 = await bus.send({
+      const msg2 = await bus.sendWithOptions({
         from: 'user',
         to: 'agent-1',
         sessionId: 'test',
@@ -94,7 +94,7 @@ describe('MessageBus', () => {
 
     it('应该设置时间戳', async () => {
       const before = Date.now();
-      const msg = await bus.send({
+      const msg = await bus.sendWithOptions({
         from: 'user',
         to: 'agent-1',
         sessionId: 'test',
@@ -134,14 +134,16 @@ describe('MessageBus', () => {
         sentMessage = msg;
       });
 
-      const msg = await bus.send({
+      await bus.send({
         from: 'user',
         to: 'agent-1',
         sessionId: 'test',
         payload: { data: 'test' },
-      });
+      } as Message);
 
-      expect(sentMessage).toEqual(msg);
+      expect(sentMessage).toBeDefined();
+      expect(sentMessage?.from).toBe('user');
+      expect(sentMessage?.to).toBe('agent-1');
     });
 
     it('应该触发 error 事件', async () => {
