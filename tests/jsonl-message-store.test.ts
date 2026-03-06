@@ -61,7 +61,7 @@ describe('JSONLMessageStore', () => {
       expect(retrieved).not.toBeNull();
       expect(retrieved?.id).toBe('msg-1');
       expect(retrieved?.sessionId).toBe('session-1');
-      expect(retrieved?.status).toBe('pending');
+      expect(retrieved?.status).toBe(MessageStatus.PENDING);
       expect(retrieved?.retryCount).toBe(0);
     });
 
@@ -91,35 +91,37 @@ describe('JSONLMessageStore', () => {
       const message = JSONLMessageStore.toPersistent(createMockMessage('msg-1', 'session-1'));
       await store.save(message);
 
-      await store.updateStatus('msg-1', 'processing');
+      await store.updateStatus('msg-1', MessageStatus.PROCESSING);
 
       const retrieved = await store.get('msg-1');
-      expect(retrieved?.status).toBe('processing');
+      expect(retrieved?.status).toBe(MessageStatus.PROCESSING);
     });
 
     it('应更新消息状态为 completed', async () => {
       const message = JSONLMessageStore.toPersistent(createMockMessage('msg-1', 'session-1'));
       await store.save(message);
 
-      await store.updateStatus('msg-1', 'completed');
+      await store.updateStatus('msg-1', MessageStatus.COMPLETED);
 
       const retrieved = await store.get('msg-1');
-      expect(retrieved?.status).toBe('completed');
+      expect(retrieved?.status).toBe(MessageStatus.COMPLETED);
     });
 
     it('应更新消息状态为 failed 并附带错误信息', async () => {
       const message = JSONLMessageStore.toPersistent(createMockMessage('msg-1', 'session-1'));
       await store.save(message);
 
-      await store.updateStatus('msg-1', 'failed', 'Connection timeout');
+      await store.updateStatus('msg-1', MessageStatus.FAILED, 'Connection timeout');
 
       const retrieved = await store.get('msg-1');
-      expect(retrieved?.status).toBe('failed');
+      expect(retrieved?.status).toBe(MessageStatus.FAILED);
       expect(retrieved?.error).toBe('Connection timeout');
     });
 
     it('应不抛出错误当更新不存在的消息时', async () => {
-      await expect(store.updateStatus('non-existent', 'processing')).resolves.not.toThrow();
+      await expect(
+        store.updateStatus('non-existent', MessageStatus.PROCESSING)
+      ).resolves.not.toThrow();
     });
   });
 
@@ -158,7 +160,7 @@ describe('JSONLMessageStore', () => {
 
       const message = JSONLMessageStore.toPersistent(createMockMessage('msg-1', 'session-1'));
       await store.save(message);
-      await store.updateStatus('msg-1', 'processing');
+      await store.updateStatus('msg-1', MessageStatus.PROCESSING);
 
       // 手动设置 updatedAt 为过去的时间
       const stored = await store.get('msg-1');
@@ -179,7 +181,7 @@ describe('JSONLMessageStore', () => {
     it('应不返回已完成的消息', async () => {
       const message = JSONLMessageStore.toPersistent(createMockMessage('msg-1', 'session-1'));
       await store.save(message);
-      await store.updateStatus('msg-1', 'completed');
+      await store.updateStatus('msg-1', MessageStatus.COMPLETED);
 
       const timeoutMessages = await store.getTimeoutMessages(new Date(Date.now() + 10000));
       expect(timeoutMessages).toHaveLength(0);
@@ -190,7 +192,7 @@ describe('JSONLMessageStore', () => {
     it('应获取可重试的失败消息', async () => {
       const message = JSONLMessageStore.toPersistent(createMockMessage('msg-1', 'session-1'));
       await store.save(message);
-      await store.updateStatus('msg-1', 'failed', 'Error');
+      await store.updateStatus('msg-1', MessageStatus.FAILED, 'Error');
 
       const retryable = await store.getRetryableMessages(3);
       expect(retryable).toHaveLength(1);
@@ -200,7 +202,7 @@ describe('JSONLMessageStore', () => {
     it('应过滤超过最大重试次数的消息', async () => {
       const message = JSONLMessageStore.toPersistent(createMockMessage('msg-1', 'session-1'));
       await store.save(message);
-      await store.updateStatus('msg-1', 'failed', 'Error');
+      await store.updateStatus('msg-1', MessageStatus.FAILED, 'Error');
       await store.incrementRetry('msg-1');
       await store.incrementRetry('msg-1');
       await store.incrementRetry('msg-1');
@@ -214,8 +216,8 @@ describe('JSONLMessageStore', () => {
       const msg2 = JSONLMessageStore.toPersistent(createMockMessage('msg-2', 'session-1'));
       await store.save(msg1);
       await store.save(msg2);
-      await store.updateStatus('msg-1', 'failed', 'Error');
-      await store.updateStatus('msg-2', 'completed');
+      await store.updateStatus('msg-1', MessageStatus.FAILED, 'Error');
+      await store.updateStatus('msg-2', MessageStatus.COMPLETED);
 
       const retryable = await store.getRetryableMessages(3);
       expect(retryable).toHaveLength(1);
@@ -230,7 +232,7 @@ describe('JSONLMessageStore', () => {
 
       const message = JSONLMessageStore.toPersistent(createMockMessage('msg-1', 'session-1'));
       await store.save(message);
-      await store.updateStatus('msg-1', 'completed');
+      await store.updateStatus('msg-1', MessageStatus.COMPLETED);
 
       const deleted = await store.deleteCompleted(new Date(now + 1000));
       expect(deleted).toBe(1);
@@ -242,7 +244,7 @@ describe('JSONLMessageStore', () => {
     it('应不删除未过期的已完成消息', async () => {
       const message = JSONLMessageStore.toPersistent(createMockMessage('msg-1', 'session-1'));
       await store.save(message);
-      await store.updateStatus('msg-1', 'completed');
+      await store.updateStatus('msg-1', MessageStatus.COMPLETED);
 
       const deleted = await store.deleteCompleted(new Date(Date.now() - 100));
       expect(deleted).toBe(0);
@@ -277,7 +279,7 @@ describe('JSONLMessageStore', () => {
       const persistent = JSONLMessageStore.toPersistent(message);
 
       expect(persistent.id).toBe('msg-1');
-      expect(persistent.status).toBe('pending');
+      expect(persistent.status).toBe(MessageStatus.PENDING);
       expect(persistent.retryCount).toBe(0);
       expect(persistent.createdAt).toBe(1000);
       expect(persistent.updatedAt).toBeGreaterThan(0);
