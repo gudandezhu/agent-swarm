@@ -325,7 +325,7 @@ export class AgentSwarm {
   /**
    * 获取 Channel（从 Session ID 提取 Channel ID）
    */
-  _getChannelFromSession(sessionId: string): IChannel | undefined {
+  getChannelFromSession(sessionId: string): IChannel | undefined {
     const channelId = sessionId.split(':')[0];
     return this.channels.get(channelId);
   }
