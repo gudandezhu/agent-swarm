@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 /**
  * AgentSwarm CLI 入口
  */

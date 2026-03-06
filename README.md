@@ -9,7 +9,7 @@
 - **Session 持久化** - 基于 JSONL 的会话存储，跨会话保持上下文
 - **多 Channel 支持** - 内置 CLI、钉钉、飞书 Channel，易于扩展
 - **能力发现** - 自动发现 Agent 能力，支持动态技能加载
-- **测试覆盖** - 83% 测试覆盖率，268 个测试用例
+- **测试覆盖** - 90%+ 测试覆盖率，300+ 测试用例
 
 ## 环境要求
 
@@ -34,6 +34,50 @@ npm install
 npm run build
 
 # 输出目录: dist/
+```
+
+### dist/ 目录结构
+
+```
+dist/
+├── index.js           # npm 包主入口 (导出 AgentSwarm 等核心类)
+├── main.js            # CLI 可执行入口
+├── AgentSwarm.js
+├── container.js
+├── agent/             # Agent 管理模块
+├── channel/           # Channel 适配器
+├── message/           # 消息处理模块
+├── session/           # Session 管理模块
+├── reliability/       # 重试机制
+└── core/              # 核心接口
+```
+
+### 作为 npm 包使用
+
+```javascript
+// ESM 方式导入
+import { AgentSwarm } from 'agent-swarm';
+
+// 或直接使用 dist/
+import { AgentSwarm } from './dist/AgentSwarm.js';
+```
+
+### CLI 使用
+
+```bash
+# 开发模式（使用 tsx 直接运行 TypeScript）
+npm run dev
+
+# 生产模式（先编译后运行）
+npm run build
+npm start
+
+# 或直接运行编译后的文件
+node dist/main.js
+
+# 全局安装后使用（npm link 后）
+npm link
+agent-swarm
 ```
 
 ## 测试

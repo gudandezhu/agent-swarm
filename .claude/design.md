@@ -1,286 +1,161 @@
-# Agent Swarm - 协作框架设计文档
+# Agent Swarm 架构设计文档
 
-## 核心目标
+## 1. 项目概述
 
-- 快速创建 Agent，一个目录就是一个 Agent
-- Swarm 内 Agent 通过 `to: agent-id` 直接通信
-- Swarm 与外部通过 Channel 统一接入
-- Session 上下文复用，JSONL 持久化
-- Agent 拥有长期记忆，跨 Session 复用
+Agent Swarm 是一个多 Agent 协作框架，支持快速创建 Agent、统一消息路由和 Session 持久化。
 
-## 技术选型
+### 核心能力
 
-| 维度 | 选择 |
-|------|------|
-| 语言 | TypeScript |
-| 运行时 | Node.js |
-| 消息总线 | EventEmitter（内置） |
-| LLM 集成 | pi-mono |
-| 持久化 | JSONL |
-| 包管理 | npm（单包） |
+- **多 Agent 管理**: 懒加载、空闲清理、生命周期管理
+- **统一消息路由**: 支持单播、广播、工作流编排
+- **多渠道接入**: CLI、钉钉、飞书等平台适配
+- **会话持久化**: JSONL 格式存储，支持上下文恢复
+
+### 设计原则
+
+1. **懒加载**: 收到消息时才启动 Agent
+2. **待机保持**: Agent 启动后保持待机，可处理后续消息
+3. **空闲清理**: 长时间无活动的 Agent 可被卸载
+4. **不可变数据**: 避免隐藏副作用，便于调试和并发
 
 ---
 
-## 与 pi-mono 的分工
+## 2. 核心架构
+
+### 2.1 架构图
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    agent-swarm (我们实现)                   │
-├─────────────────────────────────────────────────────────────┤
-│  AgentManager  │  MessageBus  │  SessionStore  │  Channel   │
-│  多 Agent 协作   │  消息路由     │  JSONL 持久化   │  适配器     │
-└─────────────────────────────────────────────────────────────┘
-                            ↓ 复用
+│                      External Channels                        │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐    │
+│  │   CLI    │  │ 钉钉     │  │  飞书    │  │  更多...  │    │
+│  └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘    │
+└───────┼─────────────┼─────────────┼─────────────┼───────────┘
+        │             │             │             │
+        ▼             ▼             ▼             ▼
 ┌─────────────────────────────────────────────────────────────┐
-│              pi-mono (@mariozechner/*)                     │
-├─────────────────────────────────────────────────────────────┤
-│  Skills (SKILL.md) │  AgentTool │  Agent │  LLM API        │
-│  遵循 Agent Skills  │  工具执行   │  运行时 │  流式调用        │
-│  标准，自动加载      │            │        │                 │
+│                      AgentSwarm (主类)                        │
+│                                                              │
+│  ┌─────────────────────────────────────────────────────┐    │
+│  │                   MessageBus                         │    │
+│  │         (订阅/发布，路由，ACK 追踪)                   │    │
+│  └──────────────────────┬──────────────────────────────┘    │
+│                         │                                    │
+│         ┌───────────────┼───────────────┐                   │
+│         ▼               ▼               ▼                   │
+│  ┌────────────┐  ┌────────────┐  ┌────────────┐            │
+│  │  Agent A   │  │  Agent B   │  │  Agent C   │            │
+│  │  (懒加载)   │  │  (懒加载)   │  │  (懒加载)   │            │
+│  └────────────┘  └────────────┘  └────────────┘            │
+│         │               │               │                   │
+│         └───────────────┼───────────────┘                   │
+│                         ▼                                    │
+│  ┌─────────────────────────────────────────────────────┐    │
+│  │              SessionManager + SessionStore           │    │
+│  │         (会话管理，上下文持久化)                      │    │
+│  └──────────────────────┬──────────────────────────────┘    │
+└─────────────────────────┼───────────────────────────────────┘
+                          │
+                          ▼
+┌─────────────────────────────────────────────────────────────┐
+│                    Workspace (~/.agent-swarm)                 │
+│  ┌─────────────────────┐  ┌─────────────────────┐           │
+│  │      agents/        │  │     sessions/       │           │
+│  │  Agent 配置和技能    │  │  会话存储和上下文    │           │
+│  └─────────────────────┘  └─────────────────────┘           │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-| 能力 | 负责方 |
-|------|--------|
-| 多 Agent 协作、消息路由 | agent-swarm |
-| Session 持久化 | agent-swarm |
-| Agent 生命周期管理 | agent-swarm |
-| Channel 适配（钉钉/飞书） | agent-swarm |
-| **Skills (SKILL.md)** | **pi-mono** |
-| 单 Agent 运行时 | pi-mono |
-| LLM 调用、Tool 执行 | pi-mono |
+### 2.2 核心组件
+
+| 组件 | 职责 | 文件位置 |
+|------|------|----------|
+| AgentSwarm | 主类，组装所有组件，协调消息流 | `src/AgentSwarm.ts` |
+| AgentManager | Agent 生命周期管理（懒加载/清理） | `src/agent/AgentManager.ts` |
+| MessageBus | 消息路由，订阅/发布，ACK 追踪 | `src/message/MessageBus.ts` |
+| SessionManager | Session 生命周期管理 | `src/session/SessionManager.ts` |
+| SessionStore | Session 持久化（JSONL 格式） | `src/session/JSONLSessionStore.ts` |
+| Channel | 外部平台适配器 | `src/channel/*.ts` |
+| Container | 依赖注入容器 | `src/container.ts` |
+| Workspace | 用户数据存储目录 | `~/.agent-swarm/` |
+
+### 2.3 Workspace 说明
+
+Workspace 是用户数据存储目录，与项目代码分离：
+
+- **默认位置**: `~/.agent-swarm/`
+- **可配置**: 通过环境变量 `AGENT_SWARM_WORKSPACE` 或代码参数自定义
+- **内容**: Agent 配置、会话数据、上下文文件
 
 ---
 
-## pi-mono Skills 机制
+## 3. 数据流设计
 
-pi-mono 已实现完整的 [Agent Skills standard](https://agentskills.io/specification)：
-
-### 加载机制（渐进式）
+### 3.1 消息路由规则
 
 ```
-┌─────────────────────────────────────────────────────┐
-│  Stage 1: Metadata (始终加载)                        │
-│  name + description ~100 tokens                      │
-│  → 用于匹配触发                                       │
-├─────────────────────────────────────────────────────┤
-│  Stage 2: SKILL.md 主体 (按需加载)                    │
-│  完整内容 <5000 tokens                                │
-│  → 触发后注入上下文                                   │
-├─────────────────────────────────────────────────────┤
-│  Stage 3: Resources (执行时加载)                      │
-│  scripts, references, assets                         │
-│  → 实际执行时使用                                     │
-└─────────────────────────────────────────────────────┘
+1. 外部消息 → Channel → Swarm → Agent
+2. Agent → Agent（通过 to 字段指定目标 Agent）
+3. Agent → 外部（通过 replyTo 字段指定响应目标）
 ```
 
-### SKILL.md 格式
-
-```markdown
----
-name: web-scraper
-description: 爬取指定 URL 的网页内容。用于抓取网页、提取文本。
----
-
-# Web Scraper
-
-## Usage
-
-当用户要求爬取网页时使用。
-
-## Parameters
-
-- `url` (string): 要爬取的网址
-
-## Notes
-
-- 支持 http 和 https
-- 返回纯文本内容
-```
-
-### 目录结构
+### 3.2 消息处理流程
 
 ```
-agent-id/
-├── config.json          # Agent 配置
-├── prompt.md            # System prompt
-└── skills/              # Agent 专属 Skills
-    ├── web-scraper/
-    │   └── SKILL.md
-    └── data-analyzer/
-        └── SKILL.md
+用户消息
+    │
+    ▼
+Channel.handleMessage()
+    │
+    ▼
+AgentSwarm.handleIncomingMessage()
+    │
+    ├── SessionManager.getOrCreate()  // 获取或创建会话
+    │
+    ▼
+MessageBus.send()
+    │
+    ▼
+AgentSwarm.handleMessage()  // 订阅了 '*' 通配符
+    │
+    ├── 判断目标是 Agent 还是 Channel
+    │
+    ├── [Agent] → sendToAgent()
+    │       │
+    │       ├── AgentManager.exists()  // 检查 Agent 是否存在
+    │       ├── SessionStore.addAgent()  // 将 Agent 添加到会话
+    │       ├── SessionStore.loadContext()  // 读取会话上下文
+    │       ├── AgentManager.process()  // 调用 Agent 处理
+    │       └── 返回响应（通过 replyTo 或 from）
+    │
+    └── [Channel] → sendToChannel()
+            │
+            └── Channel.send()  // 发送到外部平台
 ```
 
-### 调用方式
+### 3.3 工作流编排
 
-- **自动匹配**：通过 description 匹配
-- **手动调用**：`/skill:web-scraper`
-
----
-
-## 架构设计
-
-### 系统分层
-
-```
-Channel 层 → Session 层 → Message 层 → AgentManager 层 → pi-mono Agent 层
-```
-
-### 路由设计
-
-**原则**: 通过 `to` 字段直接指定目标，无需独立 Router 层。路由逻辑内置于 `AgentSwarm.handleMessage()`。
-
-| 场景 | 方案 |
-|------|------|
-| 用户 → Agent | Channel 配置 `defaultAgent` |
-| Agent → Agent | `to: "agent-id"` 直接指定 |
-| 响应路由 | `replyTo` 字段 |
-| 广播 | `to: ["a", "b", "c"]` |
-
-> **注意**: 项目中存在 `MessageRouter.ts` 文件，这是历史遗留代码。路由逻辑已在 `AgentSwarm` 中实现，`MessageRouter` 应被移除。
-
----
-
-## Agent 协作能力
-
-### 任务编排（Workflow）
-
-通过 `workflow` 字段定义轻量级任务链：
+支持 `oncomplete` 和 `onerror` 工作流：
 
 ```typescript
-interface MessagePayload {
-  task?: string;
-  data?: unknown;
-  context?: string;
-  // 工作流控制
-  workflow?: {
-    oncomplete?: string | string[];  // 完成后发消息给谁
-    onerror?: string | string[];     // 失败后发消息给谁
-  };
+interface WorkflowConfig {
+  oncomplete?: string | string[];  // 完成后发消息给谁
+  onerror?: string | string[];     // 失败后发消息给谁
 }
 ```
 
-**使用示例**:
-
-```typescript
-// 链式调用: crawler → analyzer → reporter
-await messageBus.send({
-  from: 'user',
-  to: 'crawler',
-  payload: {
-    task: '爬取数据',
-    workflow: {
-      oncomplete: 'analyzer'  // 爬取完成后发给分析器
-    }
-  }
-});
-
-// 分析器配置继续传递
-await messageBus.send({
-  from: 'crawler',
-  to: 'analyzer',
-  payload: {
-    data: crawledData,
-    workflow: {
-      oncomplete: 'reporter'  // 分析完成后发给报告器
-    }
-  }
-});
+流程：
 ```
-
-**实现位置**: `AgentSwarm.sendToAgent()` 方法末尾
-
-### Agent 能力发现
-
-让 Agent 可以查询其他 Agent 的能力：
-
-```typescript
-interface AgentCapability {
-  agentId: string;
-  name: string;
-  skills: Array<{ name: string; description: string }>;
-}
-
-class AgentManager {
-  // 获取单个 Agent 能力
-  async getCapabilities(agentId: string): Promise<AgentCapability | null>;
-
-  // 列出所有 Agent 能力
-  async listCapabilities(): Promise<AgentCapability[]>;
-}
-```
-
-**使用示例**:
-
-```typescript
-// 查询特定 Agent 能力
-const caps = await agentManager.getCapabilities('crawler');
-console.log(caps.skills); // [{ name: 'web-scraper', description: '...' }]
-
-// 发现具有特定能力的 Agent
-const allCaps = await agentManager.listCapabilities();
-const scrapers = allCaps.filter(c =>
-  c.skills.some(s => s.name.includes('scraper'))
-);
-```
-
-### 协作上下文（共享工作空间）
-
-多 Agent 协作时共享状态和数据：
-
-```typescript
-interface CollaborationContext {
-  collaborationId: string;              // 协作会话 ID
-  participants: string[];               // 参与的 Agent 列表
-  sharedState: Record<string, unknown>; // 共享状态
-  artifacts: Map<string, unknown>;      // 协作产物
-  createdAt: number;
-  updatedAt: number;
-}
-```
-
-**存储**: 扩展 Session 结构
-
-```typescript
-interface Session {
-  // ... 现有字段
-  collaboration?: CollaborationContext;  // 可选的协作上下文
-}
-```
-
-**使用示例**:
-
-```typescript
-// Agent A 存储中间结果
-await sessionStore.updateCollaboration(sessionId, {
-  artifacts: { 'crawled-data': data }
-});
-
-// Agent B 读取中间结果
-const collab = await sessionStore.getCollaboration(sessionId);
-const data = collab.artifacts.get('crawled-data');
+原始消息 → Agent A → 成功 → oncomplete → Agent B
+                     │
+                     └── 失败 → onerror → Error Handler
 ```
 
 ---
 
-## 核心类型定义
+## 4. 接口设计
 
-### 设计原则：Session 与 Message 分离
-
-| | Session（会话层） | Message（消息层） |
-|---|---------|---------|
-| 生命周期 | 长期（天/周） | 即时 |
-| 用途 | 上下文管理、记忆持久化 | 信息传递、路由控制 |
-| 持久化 | JSONL 文件 | 存入 Session |
-| 关系 | Session ID 关联多个 Message | Message 携带 sessionId |
-
-```
-Message 携带 sessionId → 关联到 Session → 读取上下文 → 处理后回复
-```
-
-### Message
-
-**目的**：单次消息传递，路由控制
+### 4.1 Message 结构
 
 ```typescript
 interface Message {
@@ -290,30 +165,26 @@ interface Message {
   version: '1.0';
 
   // 路由
-  from: string;                    // 发送者 ID
-  to: string | string[];           // 目标 Agent ID（核心路由字段）
-  sessionId: string;               // 关联会话，用于读取上下文
+  from: string;              // 发送者 ID
+  to: string | string[];     // 目标（Agent ID 或 Channel ID）
+  sessionId: string;         // 关联会话
 
   // 类型
   type: 'request' | 'response' | 'event' | 'error';
 
   // 异步响应
-  correlationId?: string;         // 匹配请求和响应
-  replyTo?: string;               // 响应目标
+  correlationId?: string;    // 匹配请求和响应
+  replyTo?: string;          // 响应目标
 
   // 内容
   payload: {
     task?: string;
     data?: unknown;
-    context?: string;
-    // 工作流控制（轻量级任务编排）
-    workflow?: {
-      oncomplete?: string | string[];  // 完成后发消息给谁
-      onerror?: string | string[];     // 失败后发消息给谁
-    };
+    context?: string;        // 会话上下文
+    workflow?: WorkflowConfig;
   };
 
-  // ACK（仅确认"收到"，不等待业务完成）
+  // ACK 配置
   ack: {
     required: boolean;
     timeout: number;
@@ -322,289 +193,432 @@ interface Message {
 }
 ```
 
-### Session
+### 4.2 Channel 接口
 
-**目的**：持久化上下文，跨消息保持状态
+```typescript
+interface IChannel {
+  readonly id: string;
+  readonly name: string;
+
+  start(): Promise<void>;
+  stop(): Promise<void>;
+  send(message: OutgoingMessage): Promise<void>;
+  onMessage(handler: (message: IncomingMessage) => Promise<void>): void;
+  makeSessionId(message: IncomingMessage): string;
+  toOutgoing(message: Message): OutgoingMessage;
+  isAvailable(): boolean;
+}
+```
+
+### 4.3 Session 结构
 
 ```typescript
 interface Session {
   // 标识
-  id: string;                     // dingtalk:user123 或 dingtalk:conv456:thread789:user123
-  channelId: string;              // dingtalk
-  channelUserId: string;          // user123
-  conversationId?: string;        // conv456（群聊）
-  threadId?: string;              // thread789（群聊线程）
+  id: string;                  // channelId:conversationId:threadId:userId
+  channelId: string;
+  channelUserId: string;
+  conversationId?: string;
+  threadId?: string;
 
   // 元数据
   createdAt: number;
   lastActiveAt: number;
+  expiredAt?: number;
 
-  // 上下文（持久化）
+  // 关联的 Agent 列表
+  agents: string[];
+
+  // 文件路径
+  contextPath: string;         // context.md 路径
+  messagesPath: string;        // messages.jsonl 路径
+
+  // 运行时上下文
   context: {
-    messages: Message[];          // 最近 20 条消息
-    variables: Record<string, unknown>;  // 会话变量
-    agentStates: Map<string, unknown>;   // 各 Agent 状态
+    messages: string[];        // Message ID 列表（最近 20 条）
+    variables: Record<string, unknown>;
+    agentStates: Map<string, unknown>;
   };
 }
 ```
 
-### AgentManager
-
-**复用 pi-mono 的 Agent 类**，我们提供多 Agent 管理：
+### 4.4 核心接口抽象
 
 ```typescript
-import { Agent } from "@mariozechner/agent";
-
-interface AgentConfig {
-  id: string;
-  name: string;
-  systemPrompt: string;
-  model: Model;
-  channels: string[];
+// 消息总线接口
+interface IMessageBus {
+  send(message: Message, options?: SendOptions): Promise<void>;
+  subscribe(agentId: string, handler: MessageHandler): () => void;
+  start(): Promise<void>;
+  stop(): Promise<void>;
+  health(): Promise<HealthStatus>;
+  getStats(): MessageBusStats;
 }
 
-// Agent 能力描述
-interface AgentCapability {
-  agentId: string;
-  name: string;
-  skills: Array<{ name: string; description: string }>;
-}
-
-class AgentManager {
-  private agents = new Map<string, Agent>();
-
-  async get(id: string): Promise<Agent> {
-    if (!this.agents.has(id)) {
-      const config = await this.loadConfig(id);
-
-      // pi-mono 会自动加载该 Agent 的 skills/ 目录下的 SKILL.md
-      const agent = new Agent({
-        initialState: {
-          systemPrompt: config.systemPrompt,
-          model: config.model,
-          tools: [],  // pi-mono 内置 tools: read, write, edit, bash
-        }
-      });
-      this.agents.set(id, agent);
-    }
-    return this.agents.get(id)!;
-  }
-
-  // 能力发现
-  async getCapabilities(agentId: string): Promise<AgentCapability | null>;
-  async listCapabilities(): Promise<AgentCapability[]>;
+// Session 存储接口
+interface ISessionStore {
+  init(): Promise<void>;
+  get(sessionId: string): Promise<Session | null>;
+  getOrCreate(options: SessionCreateOptions): Promise<Session>;
+  addMessage(sessionId: string, message: Message): Promise<void>;
+  loadMessages(sessionId: string, limit?: number): Promise<Message[]>;
+  loadContext(sessionId: string): Promise<string>;
+  saveContext(sessionId: string, context: string): Promise<void>;
+  addAgent(sessionId: string, agentId: string): Promise<void>;
+  saveAgentState(sessionId: string, agentId: string, state: unknown): Promise<void>;
+  loadAgentState(sessionId: string, agentId: string): Promise<unknown>;
+  setVariable(sessionId: string, key: string, value: unknown): Promise<void>;
+  getVariable(sessionId: string, key: string): Promise<unknown>;
+  update(sessionId: string, updater: (session: Session) => void): Promise<Session | null>;
+  cleanup(before?: Date): Promise<number>;
+  stats(): SessionStoreStats;
 }
 ```
 
 ---
 
-## 数据流
+## 5. 技术栈
 
-### 消息流转（异步非阻塞）
-
-```
-钉钉/飞书 → Channel适配 → MessageBus → AgentManager → Agent
-                                              ↓
-                                         立即ACK (0.1秒内)
-                                              ↓
-                                         异步执行任务
-                                              ↓
-                                         发送响应消息
-```
-
-### 关键设计
-
-- **ACK 快速返回**: 收到消息 0.1 秒内确认，不等待业务处理
-- **任务异步执行**: Agent 不阻塞，可处理其他消息
-- **Correlation ID**: 匹配请求和响应
-- **Reply-To**: 灵活指定响应目标
+| 层级 | 技术 | 说明 |
+|------|------|------|
+| 运行时 | Node.js 20+ | ES2022 特性支持 |
+| 语言 | TypeScript 5.3 | 严格模式，ESM 模块 |
+| LLM SDK | @anthropic-ai/sdk | Anthropic API |
+| Agent 核心 | @mariozechner/pi-agent-core | Agent 状态管理 |
+| AI 模型 | @mariozechner/pi-ai | 模型抽象层 |
+| 测试 | Vitest | 单元测试 + 覆盖率 |
+| 配置 | js-yaml | YAML 配置解析 |
 
 ---
 
-## 存储结构
+## 6. 目录结构
 
-### Session JSONL
+### 6.1 项目目录 vs Workspace 目录
+
+Agent Swarm 采用**代码与数据分离**的设计：
+
+- **项目目录**: 存放源代码和配置，可版本控制
+- **Workspace 目录**: 存放用户数据（agents、sessions），独立于项目
 
 ```
-sessions/
-├── index.jsonl                    # Session 元数据索引
-└── <sessionId>.jsonl              # 消息历史
+┌─────────────────────────────────────────────────────────────────┐
+│                        文件系统布局                              │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  ~/projects/agent-swarm/          # 项目目录（可 git clone）     │
+│  ├── src/                         # 源代码                      │
+│  ├── dist/                        # 编译产物                     │
+│  ├── package.json                                               │
+│  └── ...                                                        │
+│                                                                 │
+│  ~/.agent-swarm/                  # Workspace 目录（用户数据）   │
+│  ├── agents/                      # Agent 配置                  │
+│  │   └── my-agent/                                              │
+│  └── sessions/                    # 会话存储                    │
+│      └── cli:user123/                                           │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
-**index.jsonl**:
-```jsonl
-{"type":"session","id":"dingtalk:user123","channelId":"dingtalk","channelUserId":"user123","createdAt":1709600000000,"lastActiveAt":1709680000000}
+### 6.2 Workspace 配置
+
+**默认位置**: `~/.agent-swarm`
+
+**自定义方式**:
+
+1. **环境变量**:
+```bash
+export AGENT_SWARM_WORKSPACE=/custom/path/workspace
 ```
 
-**dingtalk:user123.jsonl**:
-```jsonl
-{"type":"message","id":"msg001","sessionId":"dingtalk:user123","timestamp":1709600000000,"role":"user","content":"帮我爬取这个网页"}
-```
-
-### JSONLSessionStore
-
+2. **代码配置**:
 ```typescript
-class JSONLSessionStore {
-  private basePath = './sessions';
-
-  async getOrCreateSession(channelMessage: IncomingMessage): Promise<Session>;
-  async addMessage(sessionId: string, message: Message): Promise<void>;
-  async load(sessionId: string): Promise<Session | null>;
-  async saveAgentState(sessionId: string, agentId: string, state: unknown): Promise<void>;
-  async cleanup(): Promise<void>;  // 24 小时未活动
-}
+const swarm = new AgentSwarm({
+  agentsPath: '/custom/path/agents',
+  sessionsPath: '/custom/path/sessions',
+});
 ```
 
----
+3. **配置文件** (未来支持):
+```yaml
+# ~/.agent-swarm/config.yaml
+workspace: /custom/path/workspace
+```
 
-## 项目结构
+### 6.3 Workspace 目录结构
 
 ```
-agent-swarm/
-├── src/
-│   ├── agent/                   # AgentManager
-│   ├── message/                 # Message、MessageBus
-│   ├── session/                 # Session、JSONLSessionStore
-│   └── channel/                 # Channel 基类、适配器（钉钉、飞书）
-├── agents/                      # Agent 目录（一个目录 = 一个 Agent）
-│   └── crawler/
-│       ├── config.json          # Agent 配置
-│       ├── prompt.md            # System prompt
-│       └── skills/              # Agent 专属 Skills（pi-mono 自动加载）
-│           └── web-scraper/
+~/.agent-swarm/                    # Workspace 根目录
+├── config.yaml                    # 全局配置（可选）
+│
+├── agents/                        # Agent 配置目录
+│   ├── README.md                  # Agent 创建指南
+│   │
+│   └── <agent-id>/                # 单个 Agent 目录
+│       ├── config.json            # Agent 配置（必需）
+│       ├── prompt.md              # System Prompt（必需）
+│       ├── MEMORY.md              # 长期记忆（可选）
+│       └── skills/                # 技能目录（可选）
+│           └── <skill-name>/
 │               └── SKILL.md
-├── sessions/                    # JSONL 持久化
-├── package.json
-└── tsconfig.json
+│
+└── sessions/                      # 会话存储目录
+    ├── index.jsonl                # 会话索引
+    │
+    └── <sessionId>/               # 单个会话目录
+        ├── context.md             # 会话上下文
+        └── messages.jsonl         # 消息历史
 ```
 
----
+### 6.4 项目目录结构
 
-## Session 策略
-
-**Session ID 生成**:
-- 单聊: `dingtalk:user123`
-- 群聊+线程: `dingtalk:conv456:thread789:user123`
-
-**ID 解析**:
-```typescript
-const parts = sessionId.split(':');
-// 单聊: [channelId, userId]
-// 群聊: [channelId, conversationId, threadId, userId]
-```
-
-**新 Session 创建时机**:
-
-1. 首次对话
-2. Session 过期（30天未活动）
-3. 用户主动触发（`/new` 或 `/reset`）
-
----
-
-## 核心 API
-
-### Agent 开发
-
-**Agent 以目录形式定义**：
+`npm install` 后的项目目录：
 
 ```
-agents/
-└── crawler/
-    ├── config.json           # Agent 配置
-    ├── prompt.md             # System prompt
-    └── skills/               # Agent 专属 Skills
-        └── web-scraper/
-            └── SKILL.md
+agent-swarm/                       # 项目根目录
+├── .claude/                       # Claude Code 配置
+│   ├── CLAUDE.md                  # 项目指令
+│   └── design.md                  # 本文档
+│
+├── src/                           # 源代码（TypeScript）
+│   ├── index.ts                   # 统一导出
+│   ├── main.ts                    # CLI 入口
+│   ├── AgentSwarm.ts              # 主类
+│   ├── container.ts               # 依赖注入容器
+│   │
+│   ├── core/                      # 核心接口定义
+│   │   ├── index.ts
+│   │   ├── IMessageBus.ts
+│   │   ├── ISessionStore.ts
+│   │   └── IMessageStore.ts
+│   │
+│   ├── agent/                     # Agent 管理
+│   │   ├── index.ts
+│   │   ├── AgentManager.ts        # 生命周期管理
+│   │   ├── config.ts              # 配置加载
+│   │   ├── prompt.ts              # Prompt 构建
+│   │   ├── memory.ts              # 记忆管理
+│   │   ├── skills.ts              # Skills 加载
+│   │   └── types.ts               # 类型定义
+│   │
+│   ├── message/                   # 消息系统
+│   │   ├── index.ts
+│   │   ├── MessageBus.ts          # 消息总线
+│   │   ├── ACKTracker.ts          # ACK 追踪
+│   │   ├── JSONLMessageStore.ts
+│   │   └── types.ts
+│   │
+│   ├── session/                   # 会话管理
+│   │   ├── index.ts
+│   │   ├── SessionManager.ts
+│   │   ├── JSONLSessionStore.ts
+│   │   └── types.ts
+│   │
+│   ├── channel/                   # 渠道适配器
+│   │   ├── index.ts
+│   │   ├── types.ts
+│   │   ├── BaseChannel.ts         # 抽象基类
+│   │   ├── CLIChannel.ts          # 命令行
+│   │   ├── DingTalkChannel.ts     # 钉钉
+│   │   └── FeishuChannel.ts       # 飞书
+│   │
+│   └── reliability/               # 可靠性
+│       ├── index.ts
+│       └── RetryScheduler.ts
+│
+├── dist/                          # 编译产物（npm run build 后生成）
+│   └── *.js                       # 编译后的 JavaScript
+│
+├── node_modules/                  # 依赖包（npm install 后生成）
+│   └── ...
+│
+├── tests/                         # 测试文件
+│   ├── mocks/                     # Mock 实现
+│   ├── utils/                     # 测试工具
+│   ├── REGRESSION_TEST_CASES.md   # 回归测试用例
+│   ├── E2E_TEST_GUIDE.md          # E2E 测试指南
+│   └── *.test.ts                  # 测试文件
+│
+├── coverage/                      # 覆盖率报告（测试后生成）
+│   └── index.html
+│
+├── package.json                   # 项目配置
+├── package-lock.json              # 依赖锁定
+├── tsconfig.json                  # TypeScript 配置
+├── vitest.config.ts               # Vitest 配置
+├── .eslintrc.js                   # ESLint 配置
+├── .prettierrc                    # Prettier 配置
+├── .gitignore                     # Git 忽略规则
+├── Dockerfile.e2e                 # E2E 测试 Docker 镜像
+├── docker-compose.e2e.yml         # Docker Compose 配置
+└── README.md                      # 项目说明
 ```
 
-**config.json**:
-```json
+### 6.5 Agent 配置详解
+
+**Agent 目录结构**:
+```
+~/.agent-swarm/agents/my-agent/
+├── config.json           # 必需：Agent 配置
+├── prompt.md             # 必需：System Prompt
+├── MEMORY.md             # 可选：长期记忆
+└── skills/               # 可选：技能目录
+    └── <skill-name>/
+        └── SKILL.md
+```
+
+**config.json 配置字段**:
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `id` | string | ✅ | Agent 唯一标识 |
+| `name` | string | ✅ | Agent 显示名称 |
+| `description` | string | ❌ | Agent 描述 |
+| `model.provider` | string | ✅ | LLM 提供商: `anthropic` |
+| `model.id` | string | ✅ | 模型 ID: `claude-sonnet-4-6` |
+| `channels` | string[] | ✅ | 支持的 Channel: `cli`, `dingtalk`, `feishu` |
+| `maxTokens` | number | ❌ | 最大 Token 数 |
+| `temperature` | number | ❌ | 温度参数 |
+
+### 6.6 快速开始流程
+
+```bash
+# 1. 安装项目
+git clone <repo-url>
+cd agent-swarm
+npm install
+npm run build
+
+# 2. 初始化 workspace（首次使用）
+mkdir -p ~/.agent-swarm/agents/my-agent
+
+# 3. 创建 Agent
+cat > ~/.agent-swarm/agents/my-agent/config.json << 'EOF'
 {
-  "id": "crawler",
-  "name": "网页爬虫",
-  "model": { "provider": "anthropic", "id": "claude-sonnet-4-6" },
-  "channels": ["dingtalk"]
+  "id": "my-agent",
+  "name": "我的助手",
+  "model": {
+    "provider": "anthropic",
+    "id": "claude-sonnet-4-6"
+  },
+  "channels": ["cli"]
+}
+EOF
+
+cat > ~/.agent-swarm/agents/my-agent/prompt.md << 'EOF'
+你是一个有用的助手。
+EOF
+
+# 4. 运行
+npm start
+```
+
+---
+
+## 7. 扩展性设计
+
+### 7.1 添加新 Channel
+
+1. 继承 `BaseChannel` 基类
+2. 实现 `start()`, `stop()`, `send()` 方法
+3. 调用 `handleMessage()` 处理收到的消息
+
+```typescript
+class MyChannel extends BaseChannel {
+  readonly id = 'my-channel';
+  readonly name = 'My Channel';
+
+  async start() { /* 启动逻辑 */ }
+  async stop() { /* 停止逻辑 */ }
+  async send(message: OutgoingMessage) { /* 发送逻辑 */ }
 }
 ```
 
-**使用**：
+### 7.2 添加新 Agent
+
+在 workspace 的 `agents/` 目录下创建：
+
+```bash
+# 默认位置: ~/.agent-swarm/agents/
+mkdir -p ~/.agent-swarm/agents/my-agent
+```
+
+```
+~/.agent-swarm/agents/my-agent/
+├── config.json    # { id, name, model, channels }
+├── prompt.md      # System Prompt
+├── MEMORY.md      # 长期记忆（可选）
+└── skills/        # Skills（可选）
+```
+
+### 7.3 自定义 SessionStore
+
+实现 `ISessionStore` 接口，可替换为数据库存储：
+
 ```typescript
-const manager = new AgentManager();
-const agent = await manager.get('crawler');
-await agent.prompt("帮我爬取 https://example.com");
+class DatabaseSessionStore implements ISessionStore {
+  // 实现所有接口方法
+}
 ```
 
-### 消息发送
+### 7.4 工作流扩展
+
+通过 `payload.workflow` 字段支持复杂编排：
 
 ```typescript
-// 1对1
-await messageBus.send({ from: 'a', to: 'b', payload: {...}, ack: {...} });
-
-// 1对多
-await messageBus.send({ from: 'a', to: ['b', 'c'], payload: {...} });
+const message: Message = {
+  // ...
+  payload: {
+    data: '处理任务',
+    workflow: {
+      oncomplete: ['agent-b', 'agent-c'],
+      onerror: 'error-handler'
+    }
+  }
+};
 ```
-
-### Skill 开发
-
-**遵循 Agent Skills standard**，放置在 Agent 的 `skills/` 目录：
-
-```
-agents/crawler/skills/web-scraper/SKILL.md
-```
-
-```markdown
----
-name: web-scraper
-description: 爬取指定 URL 的网页内容，提取文本。用于抓取网页、分析页面。
----
-
-# Web Scraper
-
-## Usage
-
-当用户要求爬取网页、抓取页面内容时使用。
-
-## Parameters
-
-- `url` (string): 要爬取的网址，必须完整 URL
-
-## Steps
-
-1. 验证 URL 格式
-2. 使用 fetch 获取内容
-3. 提取纯文本
-4. 返回给用户
-```
-
-pi-mono 会自动：
-- 扫描 `skills/` 目录
-- 提取 metadata 注入 system prompt
-- 按需加载完整 SKILL.md
 
 ---
 
-## 长期记忆
+## 8. 性能考量
 
-### 存储格式
+### 8.1 Agent 懒加载
 
-直接使用 `MEMORY.md` 文件，每个 Agent 单独有这个文件，每次请求都默认加载。
+- Agent 首次收到消息时才启动
+- 启动后保持待机状态
+- 空闲 30 分钟后自动卸载
 
-```md
-# 环境
-{账密/容器/平台域名/管理服务器}
-# 技能
-{超过5次重复调用的工作，抽象为技能}
-# 规则
-{反复强调的要求，设定为规则}
-# 常用命令
-{经常使用的命令，报错并最终正确的命令}
+### 8.2 Session 缓存
+
+- 内存缓存活跃 Session
+- JSONL 格式持久化
+- 定期清理过期 Session
+
+### 8.3 消息处理
+
+- 并发处理多个消息
+- 支持通配符订阅 (`'*'`)
+- ACK 机制确保可靠投递
+
+---
+
+## 9. 安全考量
+
+- API Key 通过环境变量配置，不硬编码
+- Session ID 格式防止遍历攻击
+- 消息内容不包含敏感信息
+
+---
+
+## 10. 测试策略
+
+| 类型 | 覆盖率 | 说明 |
+|------|--------|------|
+| 单元测试 | 80%+ | 每个模块独立测试 |
+| 集成测试 | 核心流程 | 组件间交互 |
+| E2E 测试 | 用户场景 | Docker 隔离环境 |
+
+测试运行：
+```bash
+npm run test:coverage -- --run
 ```
-
-### 操作
-
-| 操作 | 实现 |
-|------|------|
-| 添加 | 追加到文件末尾 |
-| 修改 | 均可修改       |
-
-**版本**: v0.6.0 | **更新**: 2026-03-06
