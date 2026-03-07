@@ -12,6 +12,9 @@ describe('AgentManager (补充测试)', () => {
   let manager: AgentManager;
 
   beforeEach(async () => {
+    // 设置 Mock API Key，避免 Agent 创建时因缺少 API Key 而失败
+    process.env.ANTHROPIC_API_KEY = 'sk-test-mock-key-for-supplement-test';
+
     await fs.mkdir(testAgentsPath, { recursive: true });
     manager = new AgentManager({ agentsPath: testAgentsPath });
   });

@@ -5,7 +5,7 @@
   "type": "module",
   "main": "dist/index.js",
   "bin": {
-    "agent-swarm": "dist/main.js"
+    "swarm": "dist/cli.js"
   },
   "scripts": {
     "build": "tsc",
@@ -15,7 +15,8 @@
     "test:coverage": "vitest --coverage",
     "lint": "eslint src",
     "format": "prettier --write src",
-    "start": "node dist/main.js"
+    "start": "node dist/main.js",
+    "postinstall": "node dist/setup/init-workspace.js"
   },
   "keywords": [
     "agent",

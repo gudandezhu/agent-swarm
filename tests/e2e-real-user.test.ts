@@ -18,6 +18,9 @@ describe('E2E - 真实用户场景', () => {
   const testAgentDir = join(process.cwd(), agentsPath, testAgentId);
 
   beforeEach(async () => {
+    // 设置 Mock API Key，避免 Agent 创建时因缺少 API Key 而失败
+    process.env.ANTHROPIC_API_KEY = 'sk-test-mock-key-for-e2e-test';
+
     // 创建测试 Agent 目录
     await fs.mkdir(testAgentDir, { recursive: true });
 

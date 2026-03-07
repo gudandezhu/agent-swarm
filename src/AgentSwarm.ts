@@ -14,6 +14,7 @@ import type { Message } from './message/types.js';
 import type { IMessageBus } from './core/IMessageBus.js';
 import type { ISessionStore } from './core/ISessionStore.js';
 import { container } from './container.js';
+import { WorkspaceInitializer } from './setup/WorkspaceInitializer.js';
 
 export interface AgentSwarmOptions {
   defaultAgent?: string;
@@ -48,6 +49,10 @@ export class AgentSwarm {
    * 启动 Swarm
    */
   async start(): Promise<void> {
+    // 确保工作空间已初始化
+    const workspaceInitializer = new WorkspaceInitializer();
+    await workspaceInitializer.ensure();
+
     const { AgentManager } = await import('./agent/AgentManager.js');
     const { MessageBus } = await import('./message/MessageBus.js');
     const { JSONLSessionStore } = await import('./session/JSONLSessionStore.js');

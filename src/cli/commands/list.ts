@@ -63,11 +63,7 @@ async function readAgentConfig(
 /**
  * 将配置转换为 AgentInfo
  */
-function configToAgentInfo(
-  id: string,
-  config: Record<string, unknown>,
-  valid: boolean
-): AgentInfo {
+function configToAgentInfo(id: string, config: Record<string, unknown>, valid: boolean): AgentInfo {
   return {
     id,
     name: (config.name as string) || id,
@@ -143,10 +139,7 @@ function generateJsonOutput(agents: AgentInfo[]): string {
 /**
  * 扫描 agents 目录
  */
-async function scanAgentsDirectory(
-  agentsPath: string,
-  verbose: boolean
-): Promise<AgentInfo[]> {
+async function scanAgentsDirectory(agentsPath: string, _verbose: boolean): Promise<AgentInfo[]> {
   const agents: AgentInfo[] = [];
 
   try {

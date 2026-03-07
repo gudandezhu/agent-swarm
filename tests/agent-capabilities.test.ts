@@ -13,6 +13,9 @@ describe('AgentCapability - Agent 能力发现', () => {
   const testAgentsPath = 'test-agents-capabilities';
 
   beforeEach(async () => {
+    // 设置 Mock API Key，避免 Agent 创建时因缺少 API Key 而失败
+    process.env.ANTHROPIC_API_KEY = 'sk-test-mock-key-for-capabilities-test';
+
     // 清理并创建测试目录
     try {
       await fs.rm(testAgentsPath, { recursive: true, force: true });
@@ -131,15 +134,15 @@ This is a test skill.`
       const capabilities = await agentManager.listCapabilities();
 
       expect(capabilities).toHaveLength(3);
-      expect(capabilities.some(c => c.agentId === 'test-agent')).toBe(true);
-      expect(capabilities.some(c => c.agentId === 'another-agent')).toBe(true);
-      expect(capabilities.some(c => c.agentId === 'skilled-agent')).toBe(true);
+      expect(capabilities.some((c) => c.agentId === 'test-agent')).toBe(true);
+      expect(capabilities.some((c) => c.agentId === 'another-agent')).toBe(true);
+      expect(capabilities.some((c) => c.agentId === 'skilled-agent')).toBe(true);
     });
 
     it('应包含所有 Agent 的基本信息', async () => {
       const capabilities = await agentManager.listCapabilities();
 
-      const testAgent = capabilities.find(c => c.agentId === 'test-agent');
+      const testAgent = capabilities.find((c) => c.agentId === 'test-agent');
       expect(testAgent).toBeDefined();
       expect(testAgent?.name).toBe('Test Agent');
       expect(testAgent?.description).toBe('A test agent for capabilities');
@@ -148,7 +151,7 @@ This is a test skill.`
     it('应包含 Agent 的 skills', async () => {
       const capabilities = await agentManager.listCapabilities();
 
-      const skilledAgent = capabilities.find(c => c.agentId === 'skilled-agent');
+      const skilledAgent = capabilities.find((c) => c.agentId === 'skilled-agent');
       expect(skilledAgent).toBeDefined();
       expect(skilledAgent?.skills).toHaveLength(1);
       expect(skilledAgent?.skills[0].name).toBe('test-skill');
