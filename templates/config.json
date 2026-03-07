@@ -1,0 +1,10 @@
+{
+  "version": "0.1.0",
+  "initializedAt": "{{TIMESTAMP}}",
+  "apiKeys": {
+    "anthropic": "",
+    "openai": ""
+  },
+  "workspace": "~/.agent-swarm",
+  "logLevel": "info"
+}
