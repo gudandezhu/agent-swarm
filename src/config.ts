@@ -7,9 +7,9 @@
  * 3. Agent 专用配置 (agents/{agent-id}/config.json 中的 model.apiKey)
  */
 
-import { promises as fs } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
+import * as FileOps from './utils/file-ops.js';
 
 /**
  * 全局配置结构
@@ -75,8 +75,7 @@ export class ConfigLoader {
     }
 
     try {
-      const content = await fs.readFile(this.configPath, 'utf-8');
-      this.config = JSON.parse(content) as GlobalConfig;
+      this.config = await FileOps.readJSON<GlobalConfig>(this.configPath);
       return this.config;
     } catch {
       // 配置文件不存在，返回空配置

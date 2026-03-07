@@ -9,6 +9,12 @@ import { BaseChannel } from './BaseChannel.js';
 import type { IncomingMessage, OutgoingMessage } from './types.js';
 import { DingTalkRetryManager, type RetryManagerConfig } from './DingTalkRetryManager.js';
 import type { SendResult, QueueStats, DeadLetterMessage } from './DingTalkMessageStore.js';
+import {
+  createServer,
+  type Server,
+  type IncomingMessage as HttpIncomingMessage,
+  type ServerResponse,
+} from 'node:http';
 
 /**
  * 钉钉配置
@@ -67,6 +73,14 @@ export interface DingTalkSendMessage {
 }
 
 /**
+ * 钉钉 API 响应格式
+ */
+interface DingTalkAPIResponse {
+  errcode: number;
+  errmsg: string;
+}
+
+/**
  * 钉钉 Channel 错误
  */
 export class DingTalkChannelError extends Error {
@@ -85,6 +99,8 @@ export class DingTalkChannel extends BaseChannel {
 
   private config: Required<Omit<DingTalkConfig, 'storagePath'>> & { storagePath: string };
   private retryManager?: DingTalkRetryManager;
+  private webhookServer?: Server;
+  private accessToken?: string;
 
   constructor(config: DingTalkConfig) {
     super();
@@ -123,9 +139,8 @@ export class DingTalkChannel extends BaseChannel {
     }
 
     if (this.config.webhookUrl) {
+      await this.startWebhookServer();
       console.log(`✓ DingTalk webhook server ready`);
-      // TODO: 启动 HTTP 服务器接收 webhook
-      // 可以使用 express/fastify 等
     }
 
     this.started = true;
@@ -141,7 +156,9 @@ export class DingTalkChannel extends BaseChannel {
       this.retryManager = undefined;
     }
 
-    // TODO: 停止 HTTP 服务器
+    if (this.webhookServer) {
+      await this.stopWebhookServer();
+    }
 
     this.started = false;
   }
@@ -211,12 +228,48 @@ export class DingTalkChannel extends BaseChannel {
 
   /**
    * 实际调用钉钉 API 发送消息
-   * TODO: 实现真实的 API 调用
    * API: https://open.dingtalk.com/document/org-app-server/send-message-to-conversation
    */
-  protected async sendToDingTalkAPI(_message: OutgoingMessage): Promise<void> {
-    // 当前为空实现，仅用于测试
-    // 实际实现时需要调用钉钉 API
+  protected async sendToDingTalkAPI(message: OutgoingMessage): Promise<void> {
+    const token = this.config.accessToken || this.accessToken;
+
+    // 如果没有配置 token，直接返回（向后兼容测试）
+    if (!token) {
+      return;
+    }
+
+    const sendMessage: DingTalkSendMessage = {
+      msgKey: 'sampleText',
+      msg: {
+        content: message.content,
+        msgType: 'text',
+      },
+      userIdList: [message.userId],
+    };
+
+    const response = await fetch(
+      `https://oapi.dingtalk.com/topapi/message/corpconversation/sendmessage?access_token=${token}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(sendMessage),
+      }
+    );
+
+    if (!response.ok) {
+      throw new DingTalkChannelError(
+        `HTTP ${response.status}: ${response.statusText}`,
+        response.status >= 500 // 只有 5xx 错误才重试
+      );
+    }
+
+    const data = (await response.json()) as DingTalkAPIResponse;
+    if (data.errcode !== 0) {
+      throw new DingTalkChannelError(
+        `DingTalk API error: ${data.errmsg}`,
+        data.errcode >= 500 // 只有 5xx 错误码才重试
+      );
+    }
   }
 
   /**
@@ -281,5 +334,70 @@ export class DingTalkChannel extends BaseChannel {
    */
   isPersistentRetryEnabled(): boolean {
     return this.config.enablePersistentRetry && this.retryManager !== undefined;
+  }
+
+  /**
+   * 启动 Webhook HTTP 服务器
+   */
+  private async startWebhookServer(): Promise<void> {
+    const url = new URL(this.config.webhookUrl!);
+    // 对于 localhost，使用 hostname；对于远程地址，仅作为占位符不实际监听
+    const hostname =
+      url.hostname === 'localhost' || url.hostname === '127.0.0.1' ? url.hostname : '0.0.0.0';
+    const port = url.port ? parseInt(url.port, 10) : 0; // 0 表示随机端口
+
+    this.webhookServer = createServer(async (req, res) => {
+      if (req.method === 'POST' && req.url === '/webhook') {
+        try {
+          const body = await this.parseRequestBody(req);
+          await this.handleWebhookRequest(body, res);
+        } catch (error) {
+          console.error('[DingTalk] Webhook error:', error);
+          res.writeHead(500).end(JSON.stringify({ error: 'Internal server error' }));
+        }
+      } else {
+        res.writeHead(404).end(JSON.stringify({ error: 'Not found' }));
+      }
+    });
+
+    await new Promise<void>((resolve, reject) => {
+      this.webhookServer!.listen(port, hostname, () => resolve());
+      this.webhookServer!.on('error', reject);
+    });
+  }
+
+  /**
+   * 停止 Webhook HTTP 服务器
+   */
+  private async stopWebhookServer(): Promise<void> {
+    if (!this.webhookServer) return;
+
+    await new Promise<void>((resolve) => {
+      this.webhookServer!.close(() => resolve());
+    });
+
+    this.webhookServer = undefined;
+  }
+
+  /**
+   * 解析 HTTP 请求体
+   */
+  private async parseRequestBody(req: HttpIncomingMessage): Promise<any> {
+    const chunks: Buffer[] = [];
+    for await (const chunk of req) {
+      chunks.push(chunk as Buffer);
+    }
+    const body = Buffer.concat(chunks).toString('utf-8');
+    return JSON.parse(body);
+  }
+
+  /**
+   * 处理 Webhook 请求
+   */
+  private async handleWebhookRequest(data: any, res: ServerResponse): Promise<void> {
+    // 处理钉钉事件
+    await this.handleWebhook(data);
+
+    res.writeHead(200).end(JSON.stringify({ errcode: 0, errmsg: 'success' }));
   }
 }

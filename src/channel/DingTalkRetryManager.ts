@@ -58,7 +58,10 @@ export class DingTalkRetryManager {
       sender: config.sender,
     };
 
-    this.store = new DingTalkMessageStore({ basePath: this.config.basePath });
+    this.store = new DingTalkMessageStore({
+      basePath: this.config.basePath,
+      idempotencyTtlMs: 24 * 60 * 60 * 1000,
+    });
   }
 
   /**

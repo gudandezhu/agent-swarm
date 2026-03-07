@@ -2,8 +2,8 @@
  * Skills 加载器 - 扫描 skills/ 目录，解析 SKILL.md
  */
 
-import { promises as fs } from 'fs';
 import { join } from 'path';
+import * as FileOps from '../utils/file-ops.js';
 import * as yaml from 'js-yaml';
 
 export interface SkillMetadata {
@@ -43,7 +43,7 @@ export class SkillLoader {
     const skillPath = join(this.skillsPath, skillName, 'SKILL.md');
 
     try {
-      const content = await fs.readFile(skillPath, 'utf-8');
+      const content = await FileOps.readFile(skillPath);
       const metadata = this.parseMetadata(content);
 
       return {
@@ -93,6 +93,7 @@ export class SkillLoader {
    */
   private async listSkillDirs(): Promise<string[]> {
     try {
+      const { promises: fs } = await import('fs');
       const entries = await fs.readdir(this.skillsPath, { withFileTypes: true });
       return entries.filter((e) => e.isDirectory()).map((e) => e.name);
     } catch {

@@ -2,14 +2,14 @@
  * Agent Prompt 加载
  */
 
-import { promises as fs } from 'fs';
 import { join } from 'path';
+import * as FileOps from '../utils/file-ops.js';
 
 export async function loadPrompt(agentsPath: string, agentId: string): Promise<string | null> {
   const promptPath = join(agentsPath, agentId, 'prompt.md');
 
   try {
-    return await fs.readFile(promptPath, 'utf-8');
+    return await FileOps.readFile(promptPath);
   } catch {
     return null;
   }
@@ -17,6 +17,6 @@ export async function loadPrompt(agentsPath: string, agentId: string): Promise<s
 
 export async function savePrompt(agentsPath: string, agentId: string, prompt: string): Promise<void> {
   const promptPath = join(agentsPath, agentId, 'prompt.md');
-  await fs.mkdir(join(agentsPath, agentId), { recursive: true });
-  await fs.writeFile(promptPath, prompt, 'utf-8');
+  await FileOps.ensureDir(join(agentsPath, agentId));
+  await FileOps.writeFile(promptPath, prompt);
 }

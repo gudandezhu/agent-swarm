@@ -2,8 +2,8 @@
  * Agent Memory 管理
  */
 
-import { promises as fs } from 'fs';
 import { join } from 'path';
+import * as FileOps from '../utils/file-ops.js';
 
 const MEMORY_HEADER = `# Agent Memory
 
@@ -26,11 +26,11 @@ export async function loadMemory(agentsPath: string, agentId: string): Promise<s
   const memoryPath = join(agentsPath, agentId, 'MEMORY.md');
 
   try {
-    return await fs.readFile(memoryPath, 'utf-8');
+    return await FileOps.readFile(memoryPath);
   } catch {
     // 创建默认记忆文件
-    await fs.mkdir(join(agentsPath, agentId), { recursive: true });
-    await fs.writeFile(memoryPath, MEMORY_HEADER, 'utf-8');
+    await FileOps.ensureDir(join(agentsPath, agentId));
+    await FileOps.writeFile(memoryPath, MEMORY_HEADER);
     return MEMORY_HEADER;
   }
 }
@@ -38,5 +38,5 @@ export async function loadMemory(agentsPath: string, agentId: string): Promise<s
 export async function appendMemory(agentsPath: string, agentId: string, content: string): Promise<void> {
   const memoryPath = join(agentsPath, agentId, 'MEMORY.md');
   const existing = await loadMemory(agentsPath, agentId);
-  await fs.writeFile(memoryPath, existing + '\n' + content + '\n', 'utf-8');
+  await FileOps.writeFile(memoryPath, existing + '\n' + content + '\n');
 }

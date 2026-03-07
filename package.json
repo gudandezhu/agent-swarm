@@ -13,7 +13,7 @@
     "dev:watch": "tsc --watch",
     "test": "vitest",
     "test:coverage": "vitest --coverage",
-    "lint": "eslint src",
+    "lint": "eslint dist",
     "format": "prettier --write src",
     "start": "node dist/main.js",
     "postinstall": "node dist/setup/init-workspace.js"
@@ -30,6 +30,7 @@
     "@anthropic-ai/sdk": "^0.32.0",
     "@mariozechner/pi-agent-core": "^0.56.2",
     "@mariozechner/pi-ai": "^0.56.2",
+    "@mariozechner/pi-tui": "^0.56.3",
     "js-yaml": "^4.1.1"
   },
   "devDependencies": {
