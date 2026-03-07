@@ -423,6 +423,99 @@ Logger.setLogLevel('error'); // 只显示错误
 
 ---
 
+## 2026-03-07 - Memory 系统重要性评分器实现
+
+### 任务完成情况
+
+按照 TDD 流程完成了 Memory 系统的重要性评分器实现：
+
+#### 实现的功能
+1. **基础评分** - 默认 0.5 分
+2. **用户加权** - 用户来源 +0.3
+3. **访问频率** - 重复提及 +0.2
+4. **具体数据** - 包含数字/邮箱 +0.1
+5. **情感关键词** - 重要/必须等 +0.1
+6. **时间衰减** - 30天未访问 -0.2
+7. **范围限制** - 严格限制在 0-1 之间
+
+### 代码变更
+
+**新增文件**:
+- `src/memory/consolidation/ImportanceCalculator.ts` - 重要性评分器实现
+- `tests/memory/consolidation/ImportanceCalculator.test.ts` - 测试文件
+
+### 测试结果
+
+- 测试覆盖率: **100%** (所有分支覆盖)
+- 所有 9 个测试通过
+
+### TDD 流程
+
+1. ✅ **RED** - 创建 9 个测试用例，确认失败
+2. ✅ **GREEN** - 实现功能，测试通过
+3. ✅ **IMPROVE** - 代码简洁，逻辑清晰
+
+---
+
+## 2026-03-07 - 记忆整合引擎实现
+
+### 任务完成情况
+
+按照 TDD 流程完成了记忆整合引擎的实现：
+
+#### 实现的功能
+1. **去重功能** - 检测完全相同和相似（标点符号差异）的内容
+2. **记忆合并** - 合并相同主题的记忆片段
+3. **重要性重新计算** - 合并后重新评分（包含访问次数累加）
+4. **短期→长期迁移** - 自动归档机制，删除低重要性记忆
+
+### 代码变更
+
+**新增文件**:
+- `src/memory/consolidation/MemoryConsolidator.ts` - 记忆整合引擎实现
+- `tests/memory/consolidation/MemoryConsolidator.test.ts` - 测试文件
+
+### API 设计
+
+```typescript
+class MemoryConsolidator {
+  // 查找重复的记忆
+  findDuplicates(sessionId: string): Promise<Memory[][]>
+
+  // 整合会话记忆
+  consolidate(sessionId: string): Promise<void>
+
+  // 归档旧记忆
+  archive(sessionId: string, days?: number): Promise<void>
+}
+```
+
+### 测试结果
+
+- 测试覆盖率: **94.11%** (超过 80% 目标)
+- 所有 6 个测试通过
+
+### TDD 流程
+
+1. ✅ **RED** - 创建 6 个测试用例，确认失败
+2. ✅ **GREEN** - 实现功能，测试通过
+3. ✅ **IMPROVE** - 代码简洁，算法高效
+
+### 备注
+
+整合引擎支持：
+- 内容规范化（去除标点符号、统一大小写）
+- 保留最早创建时间
+- 累加访问次数
+- 合并相关记忆 ID
+- 重新计算重要性分数
+
+**Memory 系统剩余待实现**:
+- 记忆清理调度器
+- 语义搜索功能（向量嵌入）
+
+---
+
 ## 2026-03-07 - 测试修复任务
 
 ### 问题 1: create-agent.md CRLF 换行符导致测试失败

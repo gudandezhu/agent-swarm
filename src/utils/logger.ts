@@ -84,12 +84,7 @@ function formatMessage(
 /**
  * 内部日志方法
  */
-function log(
-  level: string,
-  message: string,
-  color: keyof typeof COLORS,
-  prefix?: string
-): void {
+function log(level: string, message: string, color: keyof typeof COLORS, prefix?: string): void {
   const logLevel = level.toLowerCase() as LogLevel;
   if (LOG_LEVELS[logLevel] < LOG_LEVELS[currentLogLevel]) {
     return;
@@ -105,8 +100,8 @@ function log(
       console.warn(formatted);
       break;
     case 'info':
-    case 'success':
     case 'debug':
+    case 'silent':
     default:
       console.log(formatted);
       break;
