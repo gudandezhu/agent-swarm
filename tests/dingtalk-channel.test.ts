@@ -5,6 +5,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
   DingTalkChannel,
+  DingTalkChannelError,
   type DingTalkConfig,
   type DingTalkSendMessage,
 } from '../src/channel/DingTalkChannel.js';
@@ -53,7 +54,7 @@ describe('DingTalkChannel', () => {
     it('配置 webhookUrl 时应打印 webhook 就绪消息', async () => {
       const webhookChannel = new DingTalkChannel({
         ...defaultConfig,
-        webhookUrl: 'https://example.com/webhook',
+        webhookUrl: 'http://localhost:0', // 使用随机端口
       });
       const logSpy = vi.spyOn(console, 'log');
 
@@ -468,6 +469,164 @@ describe('DingTalkChannel', () => {
       expect(deadLetters).toEqual([]);
 
       await persistentChannel.stop();
+    });
+  });
+
+  describe('HTTP Webhook 服务器', () => {
+    it('配置 webhookUrl 时应启动 HTTP 服务器', async () => {
+      const webhookChannel = new DingTalkChannel({
+        ...defaultConfig,
+        webhookUrl: 'http://localhost:0', // 使用随机端口
+      });
+
+      await webhookChannel.start();
+      expect(webhookChannel.isAvailable()).toBe(true);
+
+      await webhookChannel.stop();
+    });
+
+    it('应正确处理 webhook 请求', async () => {
+      const http = await import('node:http');
+      const webhookChannel = new DingTalkChannel({
+        ...defaultConfig,
+        webhookUrl: 'http://localhost:0',
+      });
+
+      await webhookChannel.start();
+
+      // 获取实际监听的端口
+      const server = (webhookChannel as any).webhookServer;
+      const address = server.address() as { port: number };
+      const port = address.port;
+
+      // 模拟发送 webhook 请求
+      const testData = {
+        conversationId: 'conv-test',
+        conversationType: '1',
+        userId: { staffId: 'staff-test' },
+        content: { contentType: 'text', text: 'Test webhook message' },
+        msgId: 'msg-test',
+        msgType: 'text',
+        senderId: { staffId: 'staff-test' },
+        senderNick: 'Test User',
+        createAt: Date.now(),
+      };
+
+      const response = await new Promise<any>((resolve, reject) => {
+        const req = http.request(
+          {
+            host: 'localhost',
+            port,
+            path: '/webhook',
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          },
+          (res) => {
+            let data = '';
+            res.on('data', (chunk) => (data += chunk));
+            res.on('end', () => resolve({ status: res.statusCode, data }));
+          }
+        );
+
+        req.on('error', reject);
+        req.write(JSON.stringify(testData));
+        req.end();
+      });
+
+      expect(response.status).toBe(200);
+
+      await webhookChannel.stop();
+    });
+
+    it('停止时应关闭 HTTP 服务器', async () => {
+      const webhookChannel = new DingTalkChannel({
+        ...defaultConfig,
+        webhookUrl: 'http://localhost:0',
+      });
+
+      await webhookChannel.start();
+      const server = (webhookChannel as any).webhookServer;
+      expect(server).toBeDefined();
+      expect(server.listening).toBe(true);
+
+      await webhookChannel.stop();
+      expect(server.listening).toBe(false);
+    });
+  });
+
+  describe('钉钉 API 消息发送', () => {
+    it('应调用钉钉 API 发送文本消息', async () => {
+      // Mock fetch API
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          errcode: 0,
+          errmsg: 'ok',
+        }),
+      });
+      global.fetch = mockFetch as any;
+
+      const apiChannel = new DingTalkChannel({
+        ...defaultConfig,
+        accessToken: 'test-access-token',
+      });
+
+      await apiChannel.start();
+
+      const message: OutgoingMessage = {
+        channelId: 'dingtalk',
+        userId: 'user123',
+        content: 'Hello DingTalk API',
+      };
+
+      await apiChannel.send(message);
+
+      expect(mockFetch).toHaveBeenCalled();
+      const callArgs = mockFetch.mock.calls[0];
+      expect(callArgs[0]).toContain('oapi.dingtalk.com');
+
+      await apiChannel.stop();
+    });
+
+    it('API 调用失败时应抛出错误', async () => {
+      // Mock fetch API - 必须在创建 channel 之前设置
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: false,
+        status: 401,
+        json: async () => ({
+          errcode: 40013,
+          errmsg: 'invalid access token',
+        }),
+      });
+      global.fetch = mockFetch as any;
+
+      const apiChannel = new DingTalkChannel({
+        ...defaultConfig,
+        accessToken: 'invalid-token',
+      });
+
+      await apiChannel.start();
+
+      const message: OutgoingMessage = {
+        channelId: 'dingtalk',
+        userId: 'user123',
+        content: 'Test',
+      };
+
+      // 验证抛出错误
+      let errorThrown = false;
+      try {
+        await apiChannel.send(message);
+      } catch (error) {
+        errorThrown = true;
+        expect(error).toBeInstanceOf(DingTalkChannelError);
+      }
+
+      expect(errorThrown).toBe(true);
+
+      await apiChannel.stop();
     });
   });
 });

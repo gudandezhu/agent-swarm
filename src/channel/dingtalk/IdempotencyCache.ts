@@ -4,7 +4,6 @@
  * 防止消息重复发送
  */
 
-import { promises as fs } from 'fs';
 import { join } from 'path';
 import type { IdempotencyCacheEntry } from './types.js';
 import { JsonlFileStore } from './JsonlFileStore.js';
@@ -15,7 +14,9 @@ export class IdempotencyCache {
   private readonly ttlMs: number;
 
   constructor(basePath: string, ttlMs: number = 24 * 60 * 60 * 1000) {
-    this.store = new JsonlFileStore<IdempotencyCacheEntry>(join(basePath, 'idempotency_cache.jsonl'));
+    this.store = new JsonlFileStore<IdempotencyCacheEntry>(
+      join(basePath, 'idempotency_cache.jsonl')
+    );
     this.ttlMs = ttlMs;
   }
 

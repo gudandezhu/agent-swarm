@@ -4,11 +4,12 @@
  * 负责管理待发送和重试消息队列
  */
 
-import { promises as fs } from 'fs';
 import { join } from 'path';
+import { promises as fs } from 'fs';
 import type { OutgoingMessage } from '../types.js';
-import type { QueuedMessage, DingTalkMessageStatus } from './types.js';
 import { JsonlFileStore } from './JsonlFileStore.js';
+import type { QueuedMessage } from './types.js';
+import { DingTalkMessageStatus } from './types.js';
 
 export class MessageQueue {
   private pendingQueue = new Map<string, QueuedMessage>();
@@ -78,7 +79,7 @@ export class MessageQueue {
       nextRetryAt: now,
       createdAt: now,
       updatedAt: now,
-      status: 'pending',
+      status: DingTalkMessageStatus.PENDING,
     };
 
     this.pendingQueue.set(messageId, item);

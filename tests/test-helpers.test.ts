@@ -9,9 +9,9 @@ import { promises as fs } from 'fs';
 describe('测试工具函数', () => {
   describe('sleep', () => {
     it('应等待指定时间', async () => {
-      const start = Date.now();
+      const start = performance.now();
       await sleep(50);
-      const elapsed = Date.now() - start;
+      const elapsed = performance.now() - start;
       expect(elapsed).toBeGreaterThanOrEqual(45);
     });
   });

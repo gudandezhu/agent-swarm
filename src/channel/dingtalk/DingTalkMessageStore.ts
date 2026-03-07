@@ -10,10 +10,8 @@ import type {
   DingTalkMessageStatus,
   QueuedMessage,
   DeadLetterMessage,
-  IdempotencyCacheEntry,
   QueueStats,
-  SendResult,
-  DingTalkMessageStoreConfig,
+  MessageStoreConfig,
 } from './types.js';
 import { MessageQueue } from './MessageQueue.js';
 import { DeadLetterQueue } from './DeadLetterQueue.js';
@@ -40,7 +38,7 @@ export class DingTalkMessageStore {
     totalFailed: 0,
   };
 
-  constructor(config: DingTalkMessageStoreConfig = {}) {
+  constructor(config: Partial<MessageStoreConfig> = {}) {
     this.basePath =
       config.basePath ?? join(process.env.HOME ?? '', '.agent-swarm', 'channels', 'dingtalk');
     this.idempotencyTtlMs = config.idempotencyTtlMs ?? 24 * 60 * 60 * 1000;

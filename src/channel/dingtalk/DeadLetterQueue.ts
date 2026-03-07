@@ -4,9 +4,7 @@
  * 负责管理发送失败的消息
  */
 
-import { promises as fs } from 'fs';
 import { join } from 'path';
-import type { OutgoingMessage } from '../types.js';
 import type { DeadLetterMessage, QueuedMessage } from './types.js';
 import { JsonlFileStore } from './JsonlFileStore.js';
 

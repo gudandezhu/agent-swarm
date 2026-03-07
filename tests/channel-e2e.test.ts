@@ -39,6 +39,16 @@ describe('Channel E2E 测试', () => {
     await messageBus.start();
     vi.spyOn(console, 'log').mockImplementation(() => {});
     vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    // Mock fetch API for Feishu
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        code: 0,
+        msg: 'success',
+        data: { tenant_access_token: 'test-token' },
+      }),
+    }) as any;
   });
 
   afterEach(async () => {

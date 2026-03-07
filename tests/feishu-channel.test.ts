@@ -46,10 +46,10 @@ describe('FeishuChannel', () => {
       expect(channel.isAvailable()).toBe(true);
     });
 
-    it('配置 webhookUrl 时应打印 webhook 就绪消息', async () => {
+    it('配置 webhookUrl 时应启动 HTTP 服务器', async () => {
       const webhookChannel = new FeishuChannel({
         ...defaultConfig,
-        webhookUrl: 'https://example.com/webhook',
+        webhookUrl: 'http://localhost:0', // 使用随机端口避免冲突
       });
       const logSpy = vi.spyOn(console, 'log');
 
@@ -57,6 +57,10 @@ describe('FeishuChannel', () => {
 
       expect(logSpy).toHaveBeenCalledWith('✓ Feishu webhook server ready');
       expect(logSpy).toHaveBeenCalledWith('✓ Feishu channel started');
+      // 验证服务器已启动
+      const server = (webhookChannel as any).webhookServer;
+      expect(server).toBeDefined();
+      expect(server.listening).toBe(true);
 
       await webhookChannel.stop();
     });
@@ -76,35 +80,112 @@ describe('FeishuChannel', () => {
   });
 
   describe('send()', () => {
-    it('应打印发送日志', async () => {
+    it('应调用飞书 API 发送消息', async () => {
+      // Mock fetch API
+      const mockFetch = vi
+        .fn()
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            code: 0,
+            msg: 'success',
+            data: { tenant_access_token: 'test-token' },
+          }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            code: 0,
+            msg: 'success',
+          }),
+        });
+      global.fetch = mockFetch as any;
+
       await channel.start();
-      const logSpy = vi.spyOn(console, 'log');
 
       const message: OutgoingMessage = {
         channelId: 'feishu',
-        userId: 'user123',
+        userId: 'ou_user123',
         content: 'Hello Feishu',
       };
 
       await channel.send(message);
 
-      expect(logSpy).toHaveBeenCalledWith('[Feishu] Send to user123: Hello Feishu');
+      expect(mockFetch).toHaveBeenCalled();
+
+      await channel.stop();
     });
 
     it('应支持群聊消息', async () => {
+      // Mock fetch API
+      const mockFetch = vi
+        .fn()
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            code: 0,
+            msg: 'success',
+            data: { tenant_access_token: 'test-token' },
+          }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            code: 0,
+            msg: 'success',
+          }),
+        });
+      global.fetch = mockFetch as any;
+
       await channel.start();
-      const logSpy = vi.spyOn(console, 'log');
 
       const message: OutgoingMessage = {
         channelId: 'feishu',
-        userId: 'user456',
+        userId: 'ou_user456',
         conversationId: 'conv789',
         content: 'Group message',
       };
 
       await channel.send(message);
 
-      expect(logSpy).toHaveBeenCalledWith('[Feishu] Send to user456: Group message');
+      expect(mockFetch).toHaveBeenCalled();
+
+      await channel.stop();
+    });
+
+    it('API 调用失败时应抛出错误', async () => {
+      // Mock fetch API 返回错误
+      const mockFetch = vi
+        .fn()
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            code: 0,
+            msg: 'success',
+            data: { tenant_access_token: 'test-token' },
+          }),
+        })
+        .mockResolvedValueOnce({
+          ok: false,
+          status: 401,
+          json: async () => ({
+            code: 99991663,
+            msg: 'authentication failed',
+          }),
+        });
+      global.fetch = mockFetch as any;
+
+      await channel.start();
+
+      const message: OutgoingMessage = {
+        channelId: 'feishu',
+        userId: 'ou_test-user',
+        content: 'Test',
+      };
+
+      await expect(channel.send(message)).rejects.toThrow('Failed to send message');
+
+      await channel.stop();
     });
   });
 
