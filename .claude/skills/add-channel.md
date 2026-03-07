@@ -1,94 +1,50 @@
+---
+name: add-channel
+description: "为 Agent 添加消息渠道（CLI、钉钉、飞书等）。自动配置 webhook、API 密钥等。当用户说'添加渠道'、'连接钉钉'、'配置 webhook'、'add channel'时使用。"
+version: "1.0.0"
+author: "Agent Swarm Team"
+triggers:
+  - "添加渠道"
+  - "连接钉钉"
+  - "配置飞书"
+  - "添加 webhook"
+  - "add channel"
+  - "connect dingtalk"
+  - "setup feishu"
+category: "channel-management"
+---
+
 # Add Channel Skill
 
 ## 概述
 
-此技能用于为 Agent 添加消息渠道。Claude 会根据用户描述自动配置渠道连接。
+为 Agent 添加消息渠道。Claude 根据用户描述自动配置渠道连接。
 
-## 使用方式
+## 快速开始
 
-用户可以描述想要添加的渠道，例如：
-- "给客服 Agent 添加钉钉渠道"
-- "让翻译助手可以通过飞书接收消息"
-- "为代码助手配置 CLI 测试渠道"
+**用户说**: "给客服 Agent 添加钉钉渠道"
 
-## 支持的渠道类型
+**Claude 自动**:
+1. 询问必要信息（App Key、App Secret）
+2. 创建/更新 `channels.json`
+3. 验证配置并确认
 
-### 1. CLI 渠道
+## 支持的渠道
 
-命令行界面，用于本地测试和开发。
+### CLI 渠道
+命令行界面，无需配置，适合本地测试。
 
-**配置示例**:
-```json
-{
-  "type": "cli",
-  "enabled": true
-}
-```
+### 钉钉渠道
+企业通讯平台，需要 App Key 和 App Secret。
 
-**特点**:
-- 无需额外配置
-- 适合本地开发测试
-- 支持多行输入
-- 自动显示 Agent 回复
+### 飞书渠道
+企业通讯平台，需要 App ID 和 App Secret。
 
-### 2. 钉钉渠道
-
-钉钉企业通讯平台。
-
-**配置示例**:
-```json
-{
-  "type": "dingtalk",
-  "enabled": true,
-  "config": {
-    "appKey": "dingxxxxxxxxxxxx",
-    "appSecret": "xxxxxxxxxxxxxxxx",
-    "webhookUrl": "https://oapi.dingtalk.com/robot/send?access_token=xxx",
-    "enablePersistentRetry": true,
-    "maxRetries": 3
-  }
-}
-```
-
-**必需配置**:
-| 字段 | 说明 | 获取方式 |
-|------|------|---------|
-| appKey | 应用 Key | 钉钉开放平台 |
-| appSecret | 应用密钥 | 钉钉开放平台 |
-
-**可选配置**:
-| 字段 | 说明 | 默认值 |
-|------|------|--------|
-| webhookUrl | Webhook 地址 | - |
-| enablePersistentRetry | 启用持久化重试 | false |
-| maxRetries | 最大重试次数 | 3 |
-| retryDelay | 重试延迟(ms) | 1000 |
-
-### 3. 飞书渠道
-
-飞书企业通讯平台。
-
-**配置示例**:
-```json
-{
-  "type": "feishu",
-  "enabled": true,
-  "config": {
-    "appId": "cli_xxxxxxxxxxxxx",
-    "appSecret": "xxxxxxxxxxxxxxxx"
-  }
-}
-```
-
-**必需配置**:
-| 字段 | 说明 | 获取方式 |
-|------|------|---------|
-| appId | 应用 ID | 飞书开放平台 |
-| appSecret | 应用密钥 | 飞书开放平台 |
+配置示例参见 [渠道配置模板](templates/channel-configs.md)
 
 ## Agent 渠道配置结构
 
-### 配置文件位置
+### 目录结构
 
 ```
 ~/.agent-swarm/agents/{agent-id}/
@@ -119,125 +75,139 @@
 
 ## 执行步骤
 
-1. **确认 Agent ID**
-   - 如果用户没有指定 Agent ID，询问要配置哪个 Agent
-   - 列出现有 Agent 供选择
+### 1. 确认 Agent
 
-2. **确认渠道类型**
-   - 解析用户描述的渠道类型
-   - 如果不明确，询问具体渠道
-
-3. **收集必要信息**
-   - 列出必需的配置字段
-   - 引导用户提供配置值
-   - 验证配置完整性
-
-4. **创建/更新 channels.json**
-   - 如果文件不存在，创建新文件
-   - 如果渠道已存在，更新配置
-   - 保持其他渠道配置不变
-
-5. **验证配置**
-   - 检查 JSON 格式正确性
-   - 验证必需字段存在
-   - 确认渠道可用
-
-6. **确认完成**
-   - 显示更新后的渠道配置
-   - 提供测试建议
-
-## 渠道配置模板
-
-### 添加钉钉渠道模板
-
-**用户输入**: "给 {agent-id} 添加钉钉渠道"
-
-**Claude 响应**:
-```
-我需要以下信息来配置钉钉渠道：
-
-1. App Key（从钉钉开放平台获取）
-2. App Secret（从钉钉开放平台获取）
-
-可选配置：
-- Webhook URL（用于消息推送）
-- 是否启用持久化重试（默认：否）
-
-请提供这些信息。
+如果用户未指定 Agent ID，列出现有 Agent：
+```bash
+ls ~/.agent-swarm/agents/
 ```
 
-### 添加飞书渠道模板
+### 2. 确认渠道类型
 
-**用户输入**: "给 {agent-id} 添加飞书渠道"
+解析用户描述的渠道类型。
 
-**Claude 响应**:
+### 3. 收集配置信息
+
+**钉钉渠道必需**:
+- App Key（钉钉开放平台获取）
+- App Secret（钉钉开放平台获取）
+
+**飞书渠道必需**:
+- App ID（飞书开放平台获取）
+- App Secret（飞书开放平台获取）
+
+**CLI 渠道**: 无需配置
+
+### 4. 创建/更新 channels.json
+
+如果文件不存在，创建新文件：
+```json
+{
+  "channels": [
+    {
+      "type": "{channel-type}",
+      "enabled": true,
+      "config": {
+        /* 渠道特定配置 */
+      }
+    }
+  ]
+}
 ```
-我需要以下信息来配置飞书渠道：
 
-1. App ID（从飞书开放平台获取）
-2. App Secret（从飞书开放平台获取）
+如果渠道已存在，更新配置。
 
-请提供这些信息。
+### 5. 验证并确认
+
+- 检查 JSON 格式
+- 验证必需字段
+- 显示更新后的配置
+
+## 渠道配置示例
+
+### 添加钉钉渠道
+
+**用户**: "给客服 Agent 添加钉钉渠道"
+
+**Claude**:
+```
+我需要以下信息：
+1. App Key
+2. App Secret
+
+可选：
+- Webhook URL
+- 是否启用持久化重试
 ```
 
-### 添加 CLI 渠道模板
+### 添加飞书渠道
 
-**用户输入**: "给 {agent-id} 添加 CLI 渠道"
+**用户**: "给翻译助手添加飞书渠道"
 
-**Claude 响应**:
+**Claude**:
 ```
-CLI 渠道无需额外配置，我将直接添加。
-
-[创建 channels.json]
+我需要以下信息：
+1. App ID
+2. App Secret
 ```
+
+### 添加 CLI 渠道
+
+**用户**: "给代码助手添加 CLI 渠道"
+
+**Claude**: 直接添加，无需额外信息。
 
 ## 渠道优先级
 
-当 Agent 配置了多个渠道时，按以下优先级处理消息：
+当 Agent 配置多个渠道时：
 
-1. **按来源回复**：消息从哪个渠道来，回复到哪个渠道
-2. **同时广播**：如果配置了广播，同时发送到所有启用的渠道
+1. **按来源回复**: 消息从哪个渠道来，回复到哪个渠道
+2. **同时广播**: 如果配置了广播，同时发送到所有启用的渠道
 
 ## 安全注意事项
 
-1. **敏感信息保护**
-   - App Secret 等敏感信息存储在本地
+1. **敏感信息保护**:
+   - App Secret 等存储在本地
    - 不应提交到版本控制
    - 建议使用环境变量
 
-2. **配置文件权限**
-   - channels.json 应设置适当的文件权限
-   - 避免其他用户读取
-
-3. **建议的 .gitignore**
+2. **建议的 .gitignore**:
    ```
    channels.json
    *.secret.json
    ```
 
+3. **文件权限**:
+   - 设置适当的文件权限
+   - 避免其他用户读取
+
 ## 常见问题
 
 ### Q: 如何获取钉钉 App Key？
 
-访问 [钉钉开放平台](https://open.dingtalk.com/)，创建企业内部应用后获取。
+访问 [钉钉开放平台](https://open.dingtalk.com/)，创建企业内部应用。
 
 ### Q: 如何获取飞书 App ID？
 
-访问 [飞书开放平台](https://open.feishu.cn/)，创建企业自建应用后获取。
+访问 [飞书开放平台](https://open.feishu.cn/)，创建企业自建应用。
 
 ### Q: 可以同时配置多个渠道吗？
 
-是的，一个 Agent 可以配置多个渠道，消息会根据来源自动路由。
+是的，消息会根据来源自动路由。
 
 ### Q: 如何测试渠道配置？
 
-使用 CLI 渠道进行本地测试，确认 Agent 工作正常后再连接外部渠道。
+使用 CLI 渠道进行本地测试，确认正常后再连接外部渠道。
 
 ## 错误处理
 
-| 错误类型 | 处理方式 |
-|---------|---------|
-| Agent 不存在 | 询问是否要创建新 Agent |
+| 错误 | 处理方式 |
+|------|---------|
+| Agent 不存在 | 询问是否创建新 Agent |
 | 渠道类型不支持 | 列出支持的渠道类型 |
-| 配置信息不完整 | 提示缺少的必需字段 |
-| 配置文件损坏 | 建议备份后重新创建 |
+| 配置不完整 | 提示缺少的必需字段 |
+| 文件损坏 | 建议备份后重新创建 |
+
+## 参考文档
+
+- [渠道配置模板](templates/channel-configs.md) - 完整配置示例和字段说明
