@@ -20,13 +20,24 @@
 git clone https://github.com/your-repo/agent-swarm.git
 cd agent-swarm
 npm install
+npm run build
 ```
 
-### 2. 配置 API 密钥
+### 2. 初始化工作空间
 
-**方式一：共享配置（推荐）**
+```bash
+swarm init
+```
 
-创建 `~/.agent-swarm/config.json`，所有 Agent 共享：
+这会创建 `~/.agent-swarm/` 目录结构，包含：
+- `agents/` - Agent 配置目录
+- `sessions/` - 会话存储
+- `memory/` - 长期记忆
+- `.claude/skills/` - AI Native 技能文件
+
+### 3. 配置 API 密钥
+
+编辑 `~/.agent-swarm/config.json`：
 
 ```json
 {
@@ -37,46 +48,103 @@ npm install
 }
 ```
 
-**方式二：Agent 专用配置**
-
-在 Agent 配置中直接指定：
-
-```json
-{
-  "id": "my-agent",
-  "model": {
-    "provider": "anthropic",
-    "apiKey": "your-key"    // Agent 专用密钥
-  }
-}
-```
-
-**加载优先级**：Agent 专用 > 共享配置 > 环境变量
-
-### 3. 启动服务
+### 4. 创建 Agent
 
 ```bash
-npm run dev
+swarm create-agent my-assistant --description "我的 AI 助手"
+```
+
+### 5. 启动服务
+
+```bash
+swarm start
 ```
 
 启动后会看到：
 ```
-✓ AgentSwarm started
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Agent Swarm 工作空间已就绪
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✓ 工作空间: ~/.agent-swarm
+✓ 可用 Agents: 1
+
 🤖 Agent Swarm CLI
 输入消息发送给 Agent，输入 /exit 退出
-✓ Channel registered: Command Line Interface (cli)
 ```
 
-### 4. 开始对话
+### 6. 开始对话
 
 ```
 你: 你好
 助手: 你好！我是你的助手，有什么可以帮助你的吗？
 ```
 
+## CLI 命令
+
+### 命令列表
+
+| 命令 | 说明 |
+|------|------|
+| `swarm init` | 初始化工作空间 |
+| `swarm start` | 启动 Agent Swarm 服务 |
+| `swarm create-agent <name>` | 创建新 Agent |
+| `swarm list` | 列出所有 Agents |
+
+### swarm init
+
+初始化 Agent Swarm 工作空间：
+
+```bash
+swarm init                    # 使用默认路径 ~/.agent-swarm
+swarm init --force            # 强制重新初始化
+swarm init --quiet            # 静默模式
+```
+
+### swarm start
+
+启动 Agent Swarm 服务：
+
+```bash
+swarm start                   # 启动服务
+swarm start --dev             # 开发模式
+swarm start --port 3000       # 指定端口
+```
+
+### swarm create-agent
+
+创建新的 Agent：
+
+```bash
+swarm create-agent <name>                    # 创建基础 Agent
+swarm create-agent translator --description "翻译助手"  # 带描述
+swarm create-agent agent --template basic    # 使用模板
+```
+
+**命名规则**：
+- 长度: 2-30 字符
+- 允许: 字母、数字、连字符（-）
+- 禁止: 以连字符开头/结尾、特殊字符、空格
+
+### swarm list
+
+列出所有 Agents：
+
+```bash
+swarm list                    # 表格格式
+swarm list -v                 # 详细信息
+swarm list --json             # JSON 格式
+```
+
 ## 创建 Agent
 
-### 方式一：AI Native（推荐）
+### 方式一：CLI 命令（推荐）
+
+```bash
+swarm create-agent translator --description "专业的中英翻译助手"
+```
+
+### 方式二：AI Native
 
 在 Claude Code 中描述你的需求：
 
@@ -89,7 +157,7 @@ Claude 会自动：
 2. 生成 `config.json` 和 `prompt.md`
 3. 创建完整的 Agent 配置
 
-### 方式二：手动创建
+### 方式三：手动创建
 
 ```bash
 # 1. 创建目录
@@ -101,13 +169,9 @@ cat > ~/.agent-swarm/agents/translator/config.json << 'EOF'
   "id": "translator",
   "name": "翻译助手",
   "description": "专业的中英翻译助手",
-  "model": {
-    "provider": "anthropic",
-    "id": "claude-sonnet-4-6"
-  },
-  "channels": ["cli"],
-  "maxTokens": 4000,
-  "temperature": 0.3
+  "model": "claude-sonnet-4-6",
+  "channels": [],
+  "createdAt": "2025-01-15T00:00:00.000Z"
 }
 EOF
 
@@ -135,18 +199,10 @@ EOF
 |------|------|------|------|
 | id | string | 是 | Agent 唯一标识符 |
 | name | string | 是 | Agent 显示名称 |
-| description | string | 是 | Agent 功能描述 |
-| model.provider | string | 否 | 模型提供商 |
-| model.id | string | 否 | 模型 ID |
-| temperature | number | 否 | 模型温度 (0-1) |
-| maxTokens | number | 否 | 最大 token 数 |
-
-### 支持的模型
-
-| Provider | 模型 ID |
-|----------|---------|
-| anthropic | claude-opus-4-6, claude-sonnet-4-6, claude-haiku-4-5 |
-| openai | gpt-4, gpt-4-turbo, gpt-3.5-turbo |
+| description | string | 否 | Agent 功能描述 |
+| model | string | 否 | 模型 ID（默认 claude-sonnet-4-6） |
+| channels | array | 否 | 消息渠道配置 |
+| createdAt | string | 是 | 创建时间（ISO 8601） |
 
 ## 配置 Agent
 
@@ -166,11 +222,8 @@ EOF
 
 ```json
 {
-  "model": {
-    "provider": "openai",
-    "id": "gpt-4"
-  },
-  "temperature": 0.9
+  "model": "claude-opus-4-6",
+  "description": "更新后的描述"
 }
 ```
 
@@ -190,22 +243,17 @@ EOF
 用户: 给翻译助手添加钉钉渠道
 ```
 
-Claude 会询问必需的配置信息并自动生成 `channels.json`。
+Claude 会询问必需的配置信息并自动生成配置。
 
 ### 方式二：手动配置
 
-创建 `~/.agent-swarm/agents/{agent-id}/channels.json`：
+编辑 `~/.agent-swarm/agents/{agent-id}/config.json`：
 
 ```json
 {
   "channels": [
     {
-      "type": "cli",
-      "enabled": true
-    },
-    {
       "type": "dingtalk",
-      "enabled": true,
       "config": {
         "appKey": "your-app-key",
         "appSecret": "your-app-secret"
@@ -227,14 +275,14 @@ Claude 会询问必需的配置信息并自动生成 `channels.json`。
 2. 创建企业自建应用
 3. 获取 App ID 和 App Secret
 
-## 命令列表
+## 开发命令
 
 | 命令 | 说明 |
 |------|------|
-| `npm run dev` | 启动开发服务器 |
 | `npm run build` | 编译 TypeScript |
 | `npm test` | 运行测试 |
 | `npm run test:coverage` | 运行测试覆盖率 |
+| `npm run dev` | 开发模式（直接运行 tsx） |
 
 ### CLI 交互命令
 
@@ -260,8 +308,7 @@ Claude 会询问必需的配置信息并自动生成 `channels.json`。
 ├── agents/
 │   └── <agent-id>/
 │       ├── config.json          # Agent 配置
-│       ├── prompt.md            # Agent 提示词
-│       └── channels.json        # 渠道配置（可选）
+│       └── prompt.md            # Agent 提示词
 │
 └── sessions/
     └── <session-id>.jsonl       # 会话记录
@@ -274,19 +321,18 @@ Claude 会询问必需的配置信息并自动生成 `channels.json`。
 修改 Agent 的 `config.json`：
 ```json
 {
-  "model": {
-    "provider": "openai",
-    "id": "gpt-4"
-  }
+  "model": "claude-opus-4-6"
 }
 ```
 
+支持的模型：
+- `claude-opus-4-6`
+- `claude-sonnet-4-6`
+- `claude-haiku-4-5`
+
 ### Q: 如何调整 Agent 的回复风格？
 
-修改 `temperature` 参数：
-- **更低 (0.1-0.3)**：更确定、一致
-- **中等 (0.5-0.7)**：平衡
-- **更高 (0.8-1.0)**：更有创意、随机
+修改 `prompt.md` 中的行为指南。
 
 ### Q: Agent 没有响应怎么办？
 
@@ -306,9 +352,28 @@ cp -r ~/.agent-swarm/agents ./agents-backup
 rm -rf ~/.agent-swarm/agents/<agent-id>
 ```
 
+### Q: 如何查看所有 Agents？
+
+```bash
+swarm list
+```
+
+## 全局安装
+
+将 `swarm` 命令安装到全局：
+
+```bash
+npm link
+# 或
+npm install -g .
+```
+
+安装后可在任何目录使用 `swarm` 命令。
+
 ## 更多文档
 
 - [架构设计](.claude/design.md)
+- [CLI 测试策略](.claude/CLI_TEST_STRATEGY.md)
 - [回归测试用例](tests/REGRESSION_TEST_CASES.md)
 - [E2E 测试指南](tests/E2E_TEST_GUIDE.md)
 
