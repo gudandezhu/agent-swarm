@@ -4,9 +4,9 @@
  * 提供测试工作空间的创建、清理等辅助功能
  */
 
-import { promises as fs } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
+import * as FileOps from '../../../src/utils/file-ops.js';
 
 /**
  * 测试工作空间配置
@@ -75,7 +75,7 @@ export class TestWorkspace {
     ];
 
     for (const dir of directories) {
-      await fs.mkdir(dir, { recursive: true });
+      await FileOps.ensureDir(dir);
     }
 
     // 创建配置文件
@@ -89,19 +89,14 @@ export class TestWorkspace {
       workspace: this.workspacePath,
       logLevel: 'info',
     };
-    await fs.writeFile(
-      join(this.workspacePath, 'config.json'),
-      JSON.stringify(configContent, null, 2),
-      'utf-8'
-    );
+    await FileOps.writeJSON(join(this.workspacePath, 'config.json'), configContent);
 
     // 创建 skills 文件
     const skills = ['create-agent.md', 'configure-agent.md', 'add-channel.md'];
     for (const skill of skills) {
-      await fs.writeFile(
+      await FileOps.writeFile(
         join(this.workspacePath, '.claude', 'skills', skill),
-        `# ${skill}\n\n这是 ${skill} 的内容。`,
-        'utf-8'
+        `# ${skill}\n\n这是 ${skill} 的内容。`
       );
     }
 
@@ -118,7 +113,7 @@ export class TestWorkspace {
    */
   async createAgent(id: string, name: string, description?: string): Promise<void> {
     const agentPath = this.getAgentPath(id);
-    await fs.mkdir(agentPath, { recursive: true });
+    await FileOps.ensureDir(agentPath);
 
     // 创建 config.json
     const config = {
@@ -129,11 +124,7 @@ export class TestWorkspace {
       channels: [],
       createdAt: new Date().toISOString(),
     };
-    await fs.writeFile(
-      join(agentPath, 'config.json'),
-      JSON.stringify(config, null, 2),
-      'utf-8'
-    );
+    await FileOps.writeJSON(join(agentPath, 'config.json'), config);
 
     // 创建 prompt.md
     const prompt = `# ${name}
@@ -154,35 +145,22 @@ ${description ? description : `你是一个 AI Agent，名为 ${name}。`}
 2. 提供准确和有用的信息
 3. 在需要时寻求帮助
 `;
-    await fs.writeFile(join(agentPath, 'prompt.md'), prompt, 'utf-8');
+    await FileOps.writeFile(join(agentPath, 'prompt.md'), prompt);
   }
 
   /**
    * 清理测试工作空间
    */
   async cleanup(): Promise<void> {
-    try {
-      await fs.rm(this.workspacePath, { recursive: true, force: true });
-    } catch {
-      // 忽略清理错误
-    }
-    try {
-      await fs.rm(this.projectSkillsPath, { recursive: true, force: true });
-    } catch {
-      // 忽略清理错误
-    }
+    await FileOps.removeDir(this.workspacePath);
+    await FileOps.removeDir(this.projectSkillsPath);
   }
 
   /**
    * 检查 Agent 是否存在
    */
   async agentExists(agentId: string): Promise<boolean> {
-    try {
-      await fs.access(this.getAgentPath(agentId));
-      return true;
-    } catch {
-      return false;
-    }
+    return await FileOps.exists(this.getAgentPath(agentId));
   }
 
   /**
@@ -190,8 +168,7 @@ ${description ? description : `你是一个 AI Agent，名为 ${name}。`}
    */
   async readAgentConfig(agentId: string): Promise<Record<string, unknown> | null> {
     try {
-      const content = await fs.readFile(join(this.getAgentPath(agentId), 'config.json'), 'utf-8');
-      return JSON.parse(content);
+      return await FileOps.readJSON(join(this.getAgentPath(agentId), 'config.json'));
     } catch {
       return null;
     }
@@ -202,7 +179,7 @@ ${description ? description : `你是一个 AI Agent，名为 ${name}。`}
    */
   async readAgentPrompt(agentId: string): Promise<string | null> {
     try {
-      return await fs.readFile(join(this.getAgentPath(agentId), 'prompt.md'), 'utf-8');
+      return await FileOps.readFile(join(this.getAgentPath(agentId), 'prompt.md'));
     } catch {
       return null;
     }
@@ -213,6 +190,7 @@ ${description ? description : `你是一个 AI Agent，名为 ${name}。`}
    */
   async listAgents(): Promise<string[]> {
     try {
+      const { promises: fs } = await import('fs');
       const entries = await fs.readdir(this.getAgentsPath(), { withFileTypes: true });
       return entries
         .filter((entry) => entry.isDirectory() && !entry.name.startsWith('.'))
