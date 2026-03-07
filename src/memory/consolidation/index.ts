@@ -3,5 +3,5 @@
  */
 
 export { ImportanceCalculator } from './ImportanceCalculator.js';
-// export { MemoryConsolidator } from './MemoryConsolidator.js';
+export { MemoryConsolidator } from './MemoryConsolidator.js';
 // export { CleanupScheduler } from './CleanupScheduler.js';
