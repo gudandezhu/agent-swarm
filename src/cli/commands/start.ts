@@ -9,6 +9,7 @@ import type { AgentSwarm } from '../../AgentSwarm.js';
 import type { MockResponseGenerator } from '../../agent/AgentManager.js';
 import { validateWorkspace } from '../ensureWorkspace.js';
 import { getProjectConfigPath, DEFAULTS } from '../../constants.js';
+// import { START_MODE_LABELS } from '../../constants/modes.js';  // 未使用，暂时注释
 
 /**
  * start 命令执行结果
@@ -27,7 +28,7 @@ export interface StartCommandResult {
  * start 命令选项
  */
 export interface StartCommandOptions {
-  nonInteractive?: boolean;
+  mode?: 'tui' | 'cli' | 'non-interactive';
   mockResponse?: MockResponseGenerator;
 }
 
@@ -102,6 +103,12 @@ export async function startCommand(
     sessionsPath: join(workspacePath, 'sessions'),
     mockResponse: options.mockResponse,
     defaultAgent: (config.defaultAgent as string | undefined) ?? DEFAULTS.AGENT_ID,
+    agentLoop: config.agentLoop as
+      | {
+          enabled?: boolean;
+          interval?: number;
+        }
+      | undefined,
   };
 
   try {
@@ -136,35 +143,12 @@ export async function startCommand(
  * 生成启动信息
  */
 function generateStartMessage(
-  workspacePath: string,
-  config: Record<string, unknown>,
-  options: StartCommandOptions
+  _workspacePath: string,
+  _config: Record<string, unknown>,
+  _options: StartCommandOptions
 ): string {
-  const mode = options.nonInteractive ? '非交互模式' : '交互模式';
-
-  return `
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  Agent Swarm 服务启动成功！
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-✓ 工作空间: ${workspacePath}
-✓ 运行模式: ${mode}
-✓ 配置版本: ${config.version}
-
-🤖 服务状态:
-  - AgentSwarm 已启动
-  - 消息总线已就绪
-  - 工作空间已加载
-
-📝 可用命令:
-  - 输入消息发送给 Agent
-  - 输入 /exit 或 Ctrl+C 退出
-
-💡 提示:
-  - 使用 Ctrl+C 优雅退出
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-`.trim();
+  // 只返回空字符串，不输出任何启动信息
+  return '';
 }
 
 /**
@@ -175,21 +159,36 @@ export function showStartHelp(): string {
 swarm start - 启动 Agent Swarm 服务
 
 用法:
-  swarm start [选项]
-
-选项:
-  --non-interactive  非交互模式
+  swarm [选项]
 
 说明:
   启动 Agent Swarm 服务，加载工作空间中的所有 Agents。
-  默认进入交互模式，可以直接与 Agents 对话。
+  默认进入 TUI 模式（美观的终端用户界面）。
+
+  TUI 模式提供：
+  - 🎨 美观的界面设计（Claude Code 风格）
+  - 📝 Markdown 渲染
+  - ⚡ 流式输出
+  - 🎯 命令自动完成
 
   如果配置了 API Key，服务将连接到 Anthropic API。
   否则将使用 Mock 模式进行测试。
 
+选项:
+  --non-interactive  非交互模式
+  --tui <engine>     TUI 引擎选择：ink（默认）| pi-tui（旧版）
+
+环境变量:
+  SWARM_TUI_ENGINE          TUI 引擎：ink | pi-tui（默认：ink）
+  SWARM_STREAM_CHUNK_SIZE   流式输出块大小（默认：50）
+  SWARM_STREAM_DELAY_MS     流式输出延迟毫秒（默认：0）
+  SWARM_MAX_MESSAGES        最大消息数（默认：100）
+
 示例:
-  swarm start                    启动交互模式
-  swarm start --non-interactive  非交互模式
+  swarm                        启动 Ink TUI（默认）
+  swarm --tui ink              启动 Ink TUI
+  swarm --tui pi-tui           启动 pi-tui TUI（旧版）
+  swarm --non-interactive      非交互模式
 
 输出:
   服务启动后进入交互模式

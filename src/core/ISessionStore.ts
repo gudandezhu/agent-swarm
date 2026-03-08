@@ -38,4 +38,8 @@ export interface ISessionStore {
   update(sessionId: string, updater: (session: Session) => void): Promise<Session | null>;
   cleanup(before?: Date): Promise<number>;
   stats(): SessionStoreStats;
+  /**
+   * 获取所有 Sessions（用于 Agent Loop 汇报）
+   */
+  getAllSessions(): Session[];
 }

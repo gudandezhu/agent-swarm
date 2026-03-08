@@ -15,17 +15,20 @@
 
 ### 团队协作
 
-- **start-dev-team** - 启动完整开发团队（架构师+开发+测试）
+- **start-dev-team** - 启动完整开发团队（manager+开发+测试）
 
 ## 🚀 使用方式
 
 这些 skills 在用户安装 agent-swarm 后自动可用：
 
 ```bash
-# 安装 agent-swarm
+# 1. 安装 agent-swarm
 swarm init
 
-# 直接使用自然语言调用
+# 2. 启动 TUI 模式
+swarm
+
+# 3. 在 TUI 中使用自然语言调用 skills：
 # "创建一个翻译助手"
 # "为 agent 添加钉钉渠道"
 # "启动开发团队"

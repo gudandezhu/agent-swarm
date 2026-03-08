@@ -25,6 +25,12 @@ export interface GlobalConfig {
     glm?: string;
     [key: string]: string | undefined;
   };
+  /**
+   * 模型映射配置
+   * 将请求的模型 ID 映射到实际的模型 ID
+   * 例如: { "claude-sonnet-4-6": "glm-4.7" }
+   */
+  modelMapping?: Record<string, string>;
   workspace?: string;
 }
 

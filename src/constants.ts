@@ -32,13 +32,19 @@ export const PATHS = {
  */
 export const DEFAULTS = {
   /** 默认 Agent ID */
-  AGENT_ID: 'assistant',
+  AGENT_ID: 'manager',
   /** 会话默认 TTL（30天） */
   SESSION_TTL: 30 * 24 * 60 * 60 * 1000,
   /** Agent 空闲超时（30分钟） */
   AGENT_IDLE_TIMEOUT: 30 * 60 * 1000,
   /** Agent 清理检查间隔（5分钟） */
   AGENT_CLEANUP_INTERVAL: 5 * 60 * 1000,
+  /** 默认模型映射 */
+  MODEL_MAPPING: {
+    'claude-opus-4-5': 'glm-5',
+    'claude-sonnet-4-6': 'glm-4.7',
+    'claude-haiku-4-5': 'glm-4-flash',
+  },
 } as const;
 
 /**

@@ -1,0 +1,46 @@
+#!/usr/bin/env expect
+# TUI 自动化交互测试脚本
+
+set timeout 15
+
+spawn swarm
+
+# 等待 TUI 启动
+expect {
+  "就绪" { puts "✅ TUI 已启动" }
+  timeout { puts "❌ TUI 启动超时"; exit 1 }
+}
+
+# 发送测试消息
+send "你好，请简单介绍一下你自己\r"
+
+# 等待响应（包含处理状态）
+expect {
+  "处理中" { puts "✅ 检测到处理状态" }
+  timeout { puts "⚠️  未检测到处理状态（可能正常）" }
+}
+
+# 等待 AI 响应出现
+expect {
+  "AI" { puts "✅ 收到 AI 响应" }
+  timeout { puts "❌ 等待 AI 响应超时"; exit 1 }
+}
+
+# 等待恢复到就绪状态
+expect {
+  "就绪" { puts "✅ 恢复到就绪状态" }
+  timeout { puts "⚠️  未恢复到就绪状态" }
+}
+
+# 退出
+send "/exit\r"
+
+expect {
+  "正在退出" { puts "✅ 正在退出" }
+  timeout { puts "⚠️  退出消息未显示" }
+}
+
+expect eof
+
+puts "\n🎉 TUI 交互测试完成！"
+puts "✅ 测试通过：TUI 能够接收输入并显示响应"

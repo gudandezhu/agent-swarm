@@ -15,6 +15,8 @@ import type { IMessageBus } from './core/IMessageBus.js';
 import type { ISessionStore } from './core/ISessionStore.js';
 import { container } from './container.js';
 import { WorkspaceInitializer } from './setup/WorkspaceInitializer.js';
+import { DEFAULTS } from './constants.js';
+import { AgentLoop } from './agent/AgentLoop.js';
 
 export interface AgentSwarmOptions {
   defaultAgent?: string;
@@ -24,6 +26,13 @@ export interface AgentSwarmOptions {
    * Mock 响应生成器，用于测试时替代真实 LLM 调用
    */
   mockResponse?: MockResponseGenerator;
+  /**
+   * Agent Loop 配置
+   */
+  agentLoop?: {
+    enabled?: boolean;
+    interval?: number;
+  };
 }
 
 export class AgentSwarm {
@@ -37,12 +46,20 @@ export class AgentSwarm {
   private sessionsPath?: string;
   private agentsPath?: string;
   private mockResponse?: MockResponseGenerator;
+  private agentLoop?: AgentLoop;
 
   constructor(options: AgentSwarmOptions = {}) {
-    this.defaultAgent = options.defaultAgent ?? 'default';
+    this.defaultAgent = options.defaultAgent ?? DEFAULTS.AGENT_ID;
     this.sessionsPath = options.sessionsPath;
     this.agentsPath = options.agentsPath;
     this.mockResponse = options.mockResponse;
+
+    // 创建 Agent Loop
+    this.agentLoop = new AgentLoop(this, {
+      enabled: options.agentLoop?.enabled ?? true,
+      interval: options.agentLoop?.interval,
+      managerId: this.defaultAgent,
+    });
   }
 
   /**
@@ -96,7 +113,10 @@ export class AgentSwarm {
 
     this.unsubscribeMessageHandler = this.messageBus.subscribe('*', this.handleMessage.bind(this));
 
-    console.log('✓ AgentSwarm started');
+    // 启动 Agent Loop
+    this.agentLoop?.start();
+
+    // console.log('✓ AgentSwarm started'); // AI Native: 隐藏技术信息
   }
 
   /**
@@ -110,7 +130,7 @@ export class AgentSwarm {
     });
 
     await channel.start();
-    console.log(`✓ Channel registered: ${channel.name} (${channel.id})`);
+    // console.log(`✓ Channel registered: ${channel.name} (${channel.id})`); // AI Native: 隐藏技术信息
   }
 
   /**
@@ -151,9 +171,6 @@ export class AgentSwarm {
    * 处理内部消息（支持 Agent 协作）
    */
   private async handleMessage(message: Message): Promise<void> {
-    if (message.type === 'response' && !message.payload.workflow) {
-      return;
-    }
     const targets = Array.isArray(message.to) ? message.to : [message.to];
 
     for (const target of targets) {
@@ -178,7 +195,9 @@ export class AgentSwarm {
   private async sendToAgent(agentId: string, message: Message): Promise<void> {
     try {
       // 检查 Agent 是否存在
-      if (!(await this.agentManager.exists(agentId))) {
+      const agentExists = await this.agentManager.exists(agentId);
+
+      if (!agentExists) {
         // 处理工作流错误
         await this.handleWorkflowError(message, new Error(`Agent not found: ${agentId}`));
         return;
@@ -237,6 +256,7 @@ export class AgentSwarm {
       } else {
         // 默认发送回来源
         const from = message.from;
+
         if (this.channels.has(from)) {
           // 来源是 Channel，发送到外部
           await this.sendToChannel(from, responseMessage);
@@ -246,7 +266,6 @@ export class AgentSwarm {
         }
       }
     } catch (error) {
-      console.error(`Error processing message for agent ${agentId}:`, error);
       // 处理工作流错误
       await this.handleWorkflowError(message, error as Error);
     }
@@ -322,9 +341,7 @@ export class AgentSwarm {
 
     try {
       await channel.send(channel.toOutgoing(message));
-    } catch (error) {
-      console.error(`Error sending to channel ${channelId}:`, error);
-    }
+    } catch (error) {}
   }
 
   /**
@@ -339,6 +356,11 @@ export class AgentSwarm {
    * 停止 Swarm
    */
   async stop(): Promise<void> {
+    // 停止 Agent Loop
+    if (this.agentLoop) {
+      this.agentLoop.stop();
+    }
+
     // 停止所有 Channel
     for (const channel of this.channels.values()) {
       await channel.stop();
@@ -361,7 +383,7 @@ export class AgentSwarm {
       await this.agentManager.destroy();
     }
 
-    console.log('✓ AgentSwarm stopped');
+    // console.log('✓ AgentSwarm stopped'); // AI Native: 隐藏技术信息
   }
 
   getAgentManager(): AgentManager {
@@ -378,5 +400,9 @@ export class AgentSwarm {
 
   getSessionStore(): ISessionStore {
     return this.sessionStore;
+  }
+
+  getAgentLoop(): AgentLoop | undefined {
+    return this.agentLoop;
   }
 }

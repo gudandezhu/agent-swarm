@@ -73,6 +73,7 @@ export class MessageBus extends EventEmitter implements IMessageBus {
    * 发送消息
    */
   async send(message: Message, _options?: SendOptions): Promise<void> {
+
     if (!this.started) {
       throw new Error('MessageBus not started. Call start() first.');
     }
@@ -89,6 +90,7 @@ export class MessageBus extends EventEmitter implements IMessageBus {
 
     // 路由消息
     const targets = Array.isArray(message.to) ? message.to : [message.to];
+
     const deliveryPromises = targets.map((target) => this.deliverTo(target, message));
 
     // 等待所有投递完成（或超时）
@@ -171,6 +173,7 @@ export class MessageBus extends EventEmitter implements IMessageBus {
    * 投递消息到特定 Agent
    */
   private async deliverTo(agentId: string, message: Message): Promise<void> {
+
     // 收集所有要调用的处理器
     const allHandlers: MessageHandler[] = [];
 
@@ -185,6 +188,7 @@ export class MessageBus extends EventEmitter implements IMessageBus {
     if (wildcardHandlers) {
       allHandlers.push(...Array.from(wildcardHandlers));
     }
+
 
     if (allHandlers.length === 0) {
       this.emit('error', { message, error: new Error(`No handlers for agent: ${agentId}`) });

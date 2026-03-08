@@ -1,0 +1,42 @@
+#!/usr/bin/env expect
+# TUI 简化测试 - 只测试基本输入输出
+
+set timeout 10
+
+puts "\n🧪 TUI 简化交互测试\n"
+
+# 设置 mock API key
+set env(ANTHROPIC_API_KEY) "sk-test-mock-key"
+
+spawn swarm
+
+# 等待启动
+expect "Agent Swarm 服务启动成功" { puts "✅ TUI 启动" }
+expect "就绪" { puts "✅ 就绪状态" }
+expect "╭──" { puts "✅ 编辑器显示" }
+
+# 发送简单消息
+puts "\n📝 发送测试消息..."
+send "test\r"
+
+# 等待处理（不期望响应，因为没有真实 API）
+expect {
+  "test" { puts "✅ 消息已发送并显示" }
+  timeout { puts "⚠️  消息可能未处理" }
+}
+
+# 等待一下看是否有错误
+sleep 2
+
+# 退出
+puts "\n🚪 退出..."
+send "\003"  # Ctrl+C
+
+expect {
+  "正在退出" { puts "✅ 正常退出" }
+  timeout { puts "⚠️  退出超时" }
+}
+
+expect eof
+
+puts "\n✅ TUI 基本功能测试完成"

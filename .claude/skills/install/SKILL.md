@@ -177,12 +177,17 @@ EOF
 ## 启动服务
 
 ```bash
-swarm start
+# 启动 TUI 模式（最简单）
+swarm
+
+# 或使用启动脚本
+./start.sh
 ```
 
 **成功的标志：**
-- 看到"Agent Swarm started"消息
-- 可以通过 CLI 或 API 与 agents 交互
+- 看到"Agent Swarm 服务启动成功"消息
+- TUI 界面正常显示
+- 可以输入消息与 agents 交互
 
 ## 故障排查指南
 
@@ -254,18 +259,23 @@ source ~/.zshrc
 
 **安装成功后，引导用户：**
 
-1. **查看可用命令**
+1. **启动 TUI 模式**
    ```bash
-   swarm --help
+   swarm
    ```
 
 2. **创建第一个 agent**
    ```
-   现在可以创建你的第一个 agent 了！试试说：
+   现在可以创建你的第一个 agent 了！在 TUI 中输入：
    "创建一个翻译助手 agent"
    ```
 
-3. **查看文档**
+3. **查看帮助**
+   ```bash
+   swarm --help
+   ```
+
+4. **查看文档**
    ```
    更多信息请查看项目 README.md
    ```
@@ -367,6 +377,7 @@ docker run -it -v ~/.agent-swarm:/root/.agent-swarm agent-swarm
 - ✓ `swarm` 命令在 PATH 中可用
 - ✓ `~/.agent-swarm/` 目录结构正确
 - ✓ API 密钥已配置
-- ✓ `swarm start` 能正常启动
+- ✓ `swarm` 能正常启动 TUI 模式
+- ✓ Bun 运行时已安装（TUI 需要）
 
 **如果任何步骤失败，停下来帮助用户解决问题，不要继续。**

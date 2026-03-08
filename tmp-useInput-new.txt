@@ -1,0 +1,101 @@
+/**
+ * 简化版 useInput - 删除所有光标移动和删除逻辑
+ * 只保留基本的输入、换行、补全、历史记录
+ */
+
+// 使用 useInput 处理键盘输入（原生支持 Shift 检测）
+useInput((input, key) => {
+  // Ctrl+C 退出
+  if (key.ctrl && input === 'c') {
+    exit();
+    return;
+  }
+
+  if (isProcessingRef.current) {
+    return;
+  }
+
+  // Enter 或 Shift+Enter - 提交或换行
+  if (key.return) {
+    if (key.shift) {
+      // Shift+Enter: 换行（追加到末尾）
+      setInput((prev) => prev + '\n');
+    } else {
+      // 普通 Enter: 检查反斜杠续行
+      let isNewline = false;
+      setInput((prev) => {
+        if (prev.endsWith('\\')) {
+          isNewline = true;
+          return prev.slice(0, -1) + '\n';
+        }
+        return prev;
+      });
+
+      // 如果不是反斜杠续行，提交
+      if (!isNewline) {
+        if (!showCompletionsRef.current) {
+          handleSubmit();
+        } else {
+          const comps = completionsRef.current;
+          const selectedIndex = selectedCompletionRef.current;
+          if (comps[selectedIndex]) {
+            applyCompletion(comps[selectedIndex]);
+          }
+        }
+      }
+    }
+    return;
+  }
+
+  // Tab - 补全
+  if (key.tab) {
+    if (showCompletionsRef.current) {
+      const comps = completionsRef.current;
+      setSelectedCompletion((prev) => (prev + 1) % comps.length);
+    } else {
+      updateCompletions(inputRef.current);
+    }
+    return;
+  }
+
+  // 上箭头 - 历史记录
+  if (key.upArrow) {
+    if (showCompletionsRef.current) {
+      const comps = completionsRef.current;
+      setSelectedCompletion((prev) => (prev - 1 + comps.length) % comps.length);
+    } else {
+      navigateHistory('up');
+    }
+    return;
+  }
+
+  // 下箭头 - 历史记录
+  if (key.downArrow) {
+    if (showCompletionsRef.current) {
+      const comps = completionsRef.current;
+      setSelectedCompletion((prev) => (prev + 1) % comps.length);
+    } else {
+      navigateHistory('down');
+    }
+    return;
+  }
+
+  // ESC - 取消补全
+  if (key.escape) {
+    setShowCompletions(false);
+    return;
+  }
+
+  // 普通字符输入（追加到末尾）
+  if (input && !key.ctrl && !key.meta && !key.escape) {
+    setInput((prev) => {
+      const newInput = prev + input;
+      if (input === '/' || prev.includes('/agent ')) {
+        updateCompletions(newInput);
+      } else {
+        setShowCompletions(false);
+      }
+      return newInput;
+    });
+  }
+});

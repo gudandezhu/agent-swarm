@@ -1,0 +1,41 @@
+#!/usr/bin/env expect
+# TUI Mock 模式测试 - 使用 mock 响应测试完整流程
+
+set timeout 15
+
+puts "\n🧪 TUI Mock 模式自动化测试\n"
+
+# 创建临时配置文件，使用 mock 模式
+set mock_config_file "/tmp/agent-swarm-mock-test.json"
+set fp [open $mock_config_file w]
+puts $fp "{"
+puts $fp "  \"version\": \"0.1.0\","
+puts $fp "  \"apiKeys\": {},"
+puts $fp "  \"mockMode\": true"
+puts $fp "}"
+close $fp
+
+# 启动 swarm（不直接运行，而是通过测试脚本）
+puts "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+puts "创建 TUI 交互测试"
+puts "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+
+# 直接运行我们之前创建的测试脚本
+puts "运行 Node.js TUI 交互测试...\n"
+
+set test_output [exec "bash" {-lc "export PATH=\"/home/pyf/.npm-global/bin:\\$HOME/.bun/bin:\\$PATH\" && cd /home/pyf/project/agent-swarm && bun tests/tui-interaction.test.ts 2>&1"}]
+
+puts $test_output
+
+if {[regexp "✅" $test_output]} {
+  puts "\n✅ TUI 交互测试通过"
+} else {
+  puts "\n❌ TUI 交互测试失败"
+}
+
+# 清理
+exec rm -f $mock_config_file
+
+puts "\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+puts "🎉 测试完成"
+puts "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"

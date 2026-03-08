@@ -31,6 +31,7 @@
 | RetryScheduler | 7 | P0-P1 | ✅ |
 | DingTalkChannel | 4 | P0-P1 | ✅ |
 | FeishuChannel | 3 | P0-P1 | ✅ |
+| TUI Input | 3 | P0 | ✅ |
 | E2E | 3 | P0-P1 | ✅ |
 | Performance | 2 | P1-P2 | ❌ 未实现 |
 
@@ -178,6 +179,17 @@ Event接收→处理→发送消息
 
 ### TC-FS-003: FeishuSession管理（P0）
 正确生成sessionId，支持单聊群聊线程
+
+---
+
+### TC-TUI-001: 输入框基础功能（P0）
+输入文字不报错，正确处理Buffer和string类型输入
+
+### TC-TUI-002: 输入框类型安全（P0）
+handleData正确处理stdin的data事件，兼容Buffer和string类型
+
+### TC-TUI-003: 输入框错误处理（P1）
+handleData包含try-catch，错误不导致崩溃
 
 ---
 

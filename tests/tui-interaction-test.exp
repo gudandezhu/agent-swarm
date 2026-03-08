@@ -1,0 +1,62 @@
+#!/usr/bin/env expect
+# TUI 交互测试 - 验证用户输入和 AI 响应
+
+set timeout 20
+
+puts "\n🧪 TUI 交互测试（输入 + 响应）\n"
+
+# 启动 swarm
+spawn swarm
+
+# 等待 TUI 启动
+expect {
+  "Agent Swarm 服务启动成功" { puts "✅ TUI 启动成功" }
+  timeout { puts "❌ 启动超时"; exit 1 }
+}
+
+expect {
+  "就绪" { puts "✅ 状态栏显示就绪" }
+  timeout { puts "⚠️  未检测到就绪状态" }
+}
+
+expect {
+  "╭──" { puts "✅ 编辑器边框显示正常" }
+  timeout { puts "⚠️  未检测到编辑器" }
+}
+
+# 测试命令 /help
+puts "\n📝 测试 /help 命令..."
+send "/help\r"
+
+expect {
+  "帮助信息" { puts "✅ /help 命令响应正常" }
+  timeout { puts "⚠️  /help 命令无响应" }
+}
+
+# 等待恢复到就绪状态
+expect {
+  "就绪" { puts "✅ 恢复到就绪状态" }
+  timeout { puts "⚠️  未恢复到就绪" }
+}
+
+# 测试 /reset 命令
+puts "\n📝 测试 /reset 命令..."
+send "/reset\r"
+
+expect {
+  "会话已重置" { puts "✅ /reset 命令响应正常" }
+  timeout { puts "⚠️  /reset 命令无响应" }
+}
+
+# 退出
+puts "\n🚪 退出测试..."
+send "/exit\r"
+
+expect {
+  eof { puts "✅ 正常退出" }
+  timeout { puts "⚠️  退出超时" }
+}
+
+puts "\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+puts "✅ TUI 交互测试完成！"
+puts "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"

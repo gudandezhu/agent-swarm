@@ -1,0 +1,3 @@
+{"id":"manager-1772988207186-nleen2o","config":{"agentId":"manager","schedule":300000,"task":"定期汇报工作（每5分钟）","handler":"report","timezone":"Asia/Shanghai","metadata":{}},"createdAt":1772988207186,"enabled":true,"intervalId":{},"nextRun":1772988507186}
+{"id":"manager-1772988324969-jm20yt0","config":{"agentId":"manager","schedule":300000,"task":"定期汇报工作（每5分钟）","handler":"report","timezone":"Asia/Shanghai","metadata":{}},"createdAt":1772988324969,"enabled":true,"intervalId":{},"nextRun":1772988624969}
+{"id":"manager-1772988375838-n1rkmyp","config":{"agentId":"manager","schedule":300000,"task":"定期汇报工作（每5分钟）","handler":"report","timezone":"Asia/Shanghai","metadata":{}},"createdAt":1772988375838,"enabled":true,"intervalId":{},"nextRun":1772988675838}

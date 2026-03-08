@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 /**
  * Agent Swarm CLI 入口
  *
@@ -6,31 +5,41 @@
  * 处理所有 swarm 命令
  */
 
-import { CLI } from './cli/CLI.js';
+// 快速路径：版本和帮助不需要加载完整 CLI
+const args = process.argv.slice(2);
 
-async function main() {
-  const cli = new CLI();
-
-  // 获取命令行参数（跳过 node 和脚本路径）
-  const args = process.argv.slice(2);
-
-  // 执行命令
-  const result = await cli.execute(args);
-
-  // 根据结果设置退出码
-  if (!result.success) {
-    if (result.error) {
-      console.error(result.error);
-    }
-    process.exit(1);
-  }
-
-  if (result.message) {
-    console.log(result.message);
-  }
+// 统一的 CLI 加载函数
+async function loadCLI() {
+  const { CLI } = await import('./cli/CLI.js');
+  return new CLI();
 }
 
-main().catch((error) => {
-  console.error('发生错误:', error);
-  process.exit(1);
-});
+if (args.includes('--version') || args.includes('-v') || args[0] === 'version') {
+  loadCLI().then((cli) => console.log(cli.showVersion()));
+} else if (args.includes('--help') || args.includes('-h') || args[0] === 'help') {
+  loadCLI().then((cli) => {
+    const command = args[1];
+    console.log(command ? cli.showCommandHelp(command) : cli.showHelp());
+  });
+} else {
+  // 完整 CLI 加载
+  loadCLI()
+    .then(async (cli) => {
+      const result = await cli.execute(args);
+
+      if (!result.success) {
+        if (result.error) {
+          console.error(result.error);
+        }
+        process.exit(1);
+      }
+
+      if (result.message) {
+        console.log(result.message);
+      }
+    })
+    .catch((error) => {
+      console.error('发生错误:', error);
+      process.exit(1);
+    });
+}

@@ -290,6 +290,42 @@ export class JSONLSessionStore implements ISessionStore {
   }
 
   /**
+   * 获取所有 Sessions（用于 Agent Loop）
+   */
+  getAllSessions(): Session[] {
+    const sessions: Session[] = [];
+
+    for (const entry of this.index.entries()) {
+      // 先从缓存获取，如果缓存中没有则从索引构建
+      let session = this.cache.get(entry.id);
+
+      if (!session) {
+        session = {
+          id: entry.id,
+          channelId: entry.channelId,
+          channelUserId: entry.channelUserId,
+          conversationId: entry.conversationId,
+          threadId: entry.threadId,
+          createdAt: entry.createdAt,
+          lastActiveAt: entry.lastActiveAt,
+          agents: entry.agents ?? [],
+          contextPath: join(this.basePath, entry.id, 'context.md'),
+          messagesPath: join(this.basePath, entry.id, 'messages.jsonl'),
+          context: {
+            messages: [],
+            variables: {},
+            agentStates: new Map(),
+          },
+        };
+      }
+
+      sessions.push(session);
+    }
+
+    return sessions;
+  }
+
+  /**
    * 清理过期 Session
    */
   async cleanup(before?: Date): Promise<number> {
