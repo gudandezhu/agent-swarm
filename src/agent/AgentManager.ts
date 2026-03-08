@@ -11,6 +11,8 @@ import { promises as fs } from 'fs';
 import { join } from 'path';
 import { Agent } from '@mariozechner/pi-agent-core';
 import { getModel } from '@mariozechner/pi-ai';
+import OpenAI from 'openai';
+import { DEFAULTS } from '../constants.js';
 import type { AgentConfig, AgentState, AgentCapability } from './types.js';
 import type { Message } from '../message/types.js';
 import { SkillLoader } from './skills.js';
@@ -218,27 +220,107 @@ export class AgentManager {
       return this.mockResponse(message);
     }
 
+    // 处理定时任务消息
+    if (message.from === 'cron' && message.payload.type === 'scheduled-task') {
+      return await this.handleScheduledTask(agentId, message);
+    }
+
+    const config = await this.loadConfig(agentId);
+    if (!config) {
+      throw new Error(`Agent not found: ${agentId}`);
+    }
+
+    // 检查是否使用 OpenAI 协议（智谱 AI 等）
+    const configLoader = getConfigLoader();
+    const globalConfig = await configLoader.load();
+
+    // 检查全局配置中是否为该 provider 设置了 baseURL（智谱 AI 等）
+    const hasCustomBaseURL = globalConfig?.baseUrls?.['anthropic']?.includes('bigmodel');
+
+    if (hasCustomBaseURL) {
+      return this.processWithOpenAI(globalConfig, config, message);
+    }
+
+    // 使用 Anthropic Agent SDK
     const agent = await this.get(agentId);
 
     // 订阅事件收集响应
     let response = '';
+    let fullMessage = '';
+
     const unsubscribe = agent.subscribe((event) => {
-      if (event.type === 'message_update' && event.assistantMessageEvent.type === 'text_delta') {
-        response += event.assistantMessageEvent.delta;
+      // 捕获完整的消息
+      if (event.type === 'message_end' && (event as any).message) {
+        const msg = (event as any).message;
+        if (msg.role === 'assistant') {
+          // 尝试从 content 数组提取文本
+          if (Array.isArray(msg.content)) {
+            fullMessage = msg.content
+              .filter((block: any) => block.type === 'text')
+              .map((block: any) => block.text)
+              .join('');
+          }
+        }
       }
     });
 
     try {
       // 发送 prompt
       const userPrompt = await this.buildUserPrompt(message.payload.data);
+
       await agent.prompt(userPrompt);
 
       // 等待完成
       await agent.waitForIdle();
 
-      return response;
+      return fullMessage || response;
     } finally {
       unsubscribe();
+    }
+  }
+
+  /**
+   * 使用 OpenAI 协议处理消息（支持智谱 AI 等）
+   */
+  private async processWithOpenAI(
+    globalConfig: any,
+    config: AgentConfig,
+    message: Message
+  ): Promise<string> {
+    const configLoader = getConfigLoader();
+    const apiKeyResult = await configLoader.getApiKey('anthropic', config.model.apiKey);
+
+    if (!apiKeyResult) {
+      throw new Error('API key not found');
+    }
+
+    // 使用智谱的 baseURL
+    const baseURL = 'https://open.bigmodel.cn/api/paas/v4/';
+
+    const client = new OpenAI({
+      apiKey: apiKeyResult.key,
+      baseURL: baseURL,
+    });
+
+    const userPrompt = await this.buildUserPrompt(message.payload.data);
+
+    // 从配置读取模型映射，如果没有则使用默认值
+    const modelMapping = globalConfig?.modelMapping || DEFAULTS.MODEL_MAPPING;
+    const modelName = modelMapping[config.model.id] || config.model.id || 'glm-4.7';
+
+    try {
+      const response: any = await client.chat.completions.create({
+        model: modelName,
+        messages: [
+          { role: 'system', content: config.systemPrompt || '你是一个友好的 AI 助手。' },
+          { role: 'user', content: userPrompt },
+        ],
+      });
+
+      return response.choices[0]?.message?.content || '';
+    } catch (error) {
+      console.error('OpenAI API Error:', error);
+      throw error;
     }
   }
 
@@ -433,6 +515,44 @@ export class AgentManager {
     }
 
     return capabilities;
+  }
+
+  /**
+   * 处理定时任务消息
+   */
+  private async handleScheduledTask(agentId: string, message: Message): Promise<string> {
+    const { task, handler } = message.payload;
+
+    console.log(`[AgentManager] 处理定时任务: ${task} (${handler || 'default'})`);
+
+    try {
+      // 如果指定了 handler，调用对应的方法
+      if (handler === 'report') {
+        return await this.generateReport(agentId);
+      }
+
+      // 默认：将任务作为 prompt 发送给 Agent
+      const agent = await this.get(agentId);
+      const taskPrompt = `【定时任务】${task}\n\n请执行这个任务。`;
+
+      await agent.prompt(taskPrompt);
+      await agent.waitForIdle();
+
+      return `定时任务已完成: ${task}`;
+    } catch (error) {
+      const errorMsg = `定时任务执行失败: ${error instanceof Error ? error.message : String(error)}`;
+      console.error(`[AgentManager] ${errorMsg}`);
+      return errorMsg;
+    }
+  }
+
+  /**
+   * 生成汇报（定时任务专用）
+   */
+  private async generateReport(agentId: string): Promise<string> {
+    // 这里可以调用 AgentSwarm 的汇报功能
+    // 暂时返回简单消息
+    return `[定时汇报] 来自 ${agentId} 的汇报\n\n时间: ${new Date().toLocaleString('zh-CN')}\n状态: 正常运行`;
   }
 
   /**
