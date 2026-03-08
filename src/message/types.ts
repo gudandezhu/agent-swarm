@@ -2,7 +2,7 @@
  * Message - 单次消息传递，路由控制
  */
 
-export type MessageType = 'request' | 'response' | 'event' | 'error';
+export type MessageType = 'request' | 'response' | 'event' | 'error' | 'notification';
 
 export interface WorkflowConfig {
   oncomplete?: string | string[]; // 完成后发消息给谁
@@ -10,10 +10,13 @@ export interface WorkflowConfig {
 }
 
 export interface MessagePayload {
+  type?: string; // 消息子类型（如 'scheduled-task'）
   task?: string;
   data?: unknown;
   context?: string; // 会话上下文（context.md 内容）
   workflow?: WorkflowConfig; // 工作流控制
+  handler?: string; // 指定处理 skill
+  metadata?: Record<string, unknown>; // 元数据
 }
 
 export interface MessageACK {
