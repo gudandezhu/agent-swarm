@@ -4,7 +4,7 @@
 
 import React from 'react';
 import { Box, Text } from 'ink';
-import Markdown from 'ink-markdown';
+// import Markdown from 'ink-markdown'; // 暂时禁用 - ESM 兼容性问题
 import type { MessageItemProps } from '../types.js';
 
 const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
@@ -40,7 +40,7 @@ const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
         {getPrefix()}
       </Text>
       <Box paddingLeft={2}>
-        <Markdown>{message.content}</Markdown>
+        <Text>{message.content}</Text>
       </Box>
     </Box>
   );

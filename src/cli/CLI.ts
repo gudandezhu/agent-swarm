@@ -210,34 +210,23 @@ export class CLI {
   /**
    * 启动交互模式（使用 Ink TUI）
    */
-  private async startInteractiveMode(_service: AgentSwarm): Promise<CLIResult> {
-    // TUI 暂时禁用 - 需要 ink 和 react 依赖
-    console.warn('⚠️  TUI 模式暂时不可用，使用非交互模式');
-    return {
-      success: true,
-      message: '服务已启动（非交互模式）',
-    };
-
-    /* 原始代码（需要安装 ink 和 react）
+  private async startInteractiveMode(service: AgentSwarm): Promise<CLIResult> {
     try {
       const InkChannelModule = await import('../channel/InkChannel.js');
       const tui = new InkChannelModule.default();
       await service.registerChannel(tui);
       return this.waitForExit(service);
     } catch (error) {
-      console.warn(`⚠️  启动交互通道失败，使用非交互模式: ${error}`);
       return {
-        success: true,
-        message: '服务已启动（非交互模式）',
+        success: false,
+        error: `启动交互通道失败: ${error}`,
       };
     }
-    */
   }
 
   /**
    * 等待退出信号
    */
-  /*
   private waitForExit(service: AgentSwarm): Promise<CLIResult> {
     return new Promise<void>((resolve) => {
       const cleanup = async () => {
@@ -256,7 +245,6 @@ export class CLI {
       process.once('SIGTERM', cleanup);
     }).then(() => ({ success: true }));
   }
-  */
 
   /**
    * create-agent 命令 - 创建 Agent
