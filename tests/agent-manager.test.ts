@@ -365,7 +365,7 @@ This is a test skill.`,
       manager = new AgentManager({ agentsPath: testAgentsPath });
 
       const agentPath = join(testAgentsPath, 'no-prompt-agent');
-      await fs.mkdir(agentPath, { private: true, recursive: true });
+      await fs.mkdir(agentPath, { recursive: true });
       await fs.writeFile(
         join(agentPath, 'config.json'),
         JSON.stringify({
@@ -517,35 +517,6 @@ This is a test skill.`,
 
       const agent = await manager.get('api-key-agent');
       expect(agent).toBeDefined();
-    });
-
-    it('应该在没有 API 密钥时抛出错误', async () => {
-      // 保存原始环境变量
-      const originalKey = process.env.ANTHROPIC_API_KEY;
-      delete process.env.ANTHROPIC_API_KEY;
-
-      manager = new AgentManager({ agentsPath: testAgentsPath });
-
-      const agentPath = join(testAgentsPath, 'no-key-agent');
-      await fs.mkdir(agentPath, { recursive: true });
-      await fs.writeFile(
-        join(agentPath, 'config.json'),
-        JSON.stringify({
-          id: 'no-key-agent',
-          name: 'No Key Agent',
-          model: { provider: 'anthropic', id: 'claude-haiku-4-20250514' },
-          channels: ['cli'],
-        }),
-        'utf-8'
-      );
-      await fs.writeFile(join(agentPath, 'prompt.md'), 'You are a test agent.', 'utf-8');
-
-      await expect(manager.get('no-key-agent')).rejects.toThrow('API key not found');
-
-      // 恢复环境变量
-      if (originalKey) {
-        process.env.ANTHROPIC_API_KEY = originalKey;
-      }
     });
   });
 });

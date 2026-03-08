@@ -695,7 +695,18 @@ const message: Message = {
 
 ---
 
-## 9. pi-agent-core 集成
+## 9. pi-agent-core 集成 🚧 [规划中]
+
+> ⚠️ **重要提示**：本节内容为设计规划，**尚未实现**。
+>
+> **当前不可用的功能**：
+> - ❌ 工具调用系统（Tool Registry）
+> - ❌ 上下文裁剪策略（transformContext）
+> - ❌ AgentTool 接口集成
+>
+> **预计实现版本**：v0.2.0
+>
+> 如需了解完整功能清单，请查看 [FEATURES.md](../FEATURES.md)
 
 ### 9.1 项目定位
 

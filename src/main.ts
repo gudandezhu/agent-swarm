@@ -21,11 +21,14 @@ async function main() {
   const cli = new CLIChannel();
   await swarm.registerChannel(cli);
 
-  process.on('SIGINT', async () => {
+  // 使用 once() 避免内存泄漏
+  const cleanup = async () => {
     console.log('\n正在退出...');
     await swarm.stop();
     process.exit(0);
-  });
+  };
+  process.once('SIGINT', cleanup);
+  process.once('SIGTERM', cleanup);
 }
 
 main().catch(console.error);

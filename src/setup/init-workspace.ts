@@ -42,10 +42,18 @@ async function main(): Promise<void> {
     console.log(`  位置: ${initializer.getWorkspacePath()}`);
     console.log('');
     console.log('📝 下一步:');
-    console.log('  1. 配置 API 密钥: export ANTHROPIC_API_KEY=sk-ant-...');
-    console.log('  2. 运行开发服务器: npm run dev');
+
+    // 检查是否配置了 API 密钥
+    const hasApiKey = !!process.env.ANTHROPIC_API_KEY;
+
+    if (hasApiKey) {
+      console.log('  ✓ API 密钥已配置');
+      console.log('  启动服务: swarm start');
+    } else {
+      console.log('  1. 配置 API 密钥: export ANTHROPIC_API_KEY=sk-ant-...');
+      console.log('  2. 启动服务: swarm start');
+    }
     console.log('');
-    console.log('📚 文档: https://github.com/your-repo/agent-swarm');
   } else {
     console.error('✗ 初始化失败:', result.error || result.message);
     console.error('');

@@ -5,6 +5,7 @@
  */
 
 import { join } from 'path';
+import type { AgentSwarm } from '../AgentSwarm.js';
 import { initCommand, showInitHelp } from './commands/init.js';
 import { startCommand, showStartHelp } from './commands/start.js';
 import { createAgentCommand, showCreateAgentHelp } from './commands/createAgent.js';
@@ -137,10 +138,8 @@ export class CLI {
         return await this.cmdList(options);
 
       case '':
-        return {
-          success: false,
-          error: '未指定命令。使用 "swarm --help" 查看帮助。',
-        };
+        // 默认启动交互模式
+        return await this.cmdStart(options);
 
       default:
         return {
@@ -178,8 +177,6 @@ export class CLI {
   private async cmdStart(options: Record<string, string | boolean>): Promise<CLIResult> {
     // 解析选项
     const startOptions = {
-      port: typeof options.port === 'string' ? Number(options.port) : undefined,
-      daemon: options.daemon === true,
       nonInteractive: options['non-interactive'] === true,
     };
 
@@ -196,12 +193,58 @@ export class CLI {
       console.warn(`⚠️  ${result.warning}`);
     }
 
+    // 如果启动成功且不是非交互模式，启动 CLI 通道
+    if (result.success && result.service && !startOptions.nonInteractive) {
+      return this.startInteractiveMode(result.service);
+    }
+
     return {
       success: result.success,
       message: result.message,
       error: result.error,
       data: result.service,
     };
+  }
+
+  /**
+   * 启动交互模式
+   */
+  private async startInteractiveMode(service: AgentSwarm): Promise<CLIResult> {
+    try {
+      const { CLIChannel } = await import('../channel/CLIChannel.js');
+      const cli = new CLIChannel();
+      await service.registerChannel(cli);
+
+      // 等待退出信号
+      return this.waitForExit(service);
+    } catch (error) {
+      return {
+        success: false,
+        error: `启动 CLI 通道失败: ${error}`,
+      };
+    }
+  }
+
+  /**
+   * 等待退出信号
+   */
+  private waitForExit(service: AgentSwarm): Promise<CLIResult> {
+    return new Promise<void>((resolve) => {
+      const cleanup = async () => {
+        console.log('\n正在退出...');
+        try {
+          await service.stop();
+          resolve();
+        } catch (error) {
+          console.error('停止服务失败:', error);
+          process.exit(1);
+        }
+      };
+
+      // 只注册一次事件监听器
+      process.once('SIGINT', cleanup);
+      process.once('SIGTERM', cleanup);
+    }).then(() => ({ success: true }));
   }
 
   /**

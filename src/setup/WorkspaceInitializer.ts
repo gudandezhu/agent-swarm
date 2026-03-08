@@ -8,6 +8,7 @@
 import { promises as fs } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
+import { getProjectConfigPath } from '../constants.js';
 
 /**
  * 初始化结果
@@ -32,11 +33,12 @@ export class WorkspaceInitializer {
   }
 
   /**
-   * 检查工作空间是否存在
+   * 检查工作空间是否存在（检查配置文件）
    */
   async exists(): Promise<boolean> {
     try {
-      await fs.access(this.workspacePath);
+      const configPath = getProjectConfigPath(this.workspacePath);
+      await fs.access(configPath);
       return true;
     } catch {
       return false;
@@ -56,9 +58,8 @@ export class WorkspaceInitializer {
       join(this.workspacePath, '.claude', 'skills'),
     ];
 
-    for (const dir of directories) {
-      await fs.mkdir(dir, { recursive: true });
-    }
+    // 并行创建所有目录
+    await Promise.all(directories.map((dir) => fs.mkdir(dir, { recursive: true })));
 
     // 创建 .gitkeep 文件
     const gitkeepFiles = [
@@ -67,13 +68,14 @@ export class WorkspaceInitializer {
       join(this.workspacePath, 'memory', '.gitkeep'),
     ];
 
-    for (const file of gitkeepFiles) {
-      try {
-        await fs.writeFile(file, '');
-      } catch {
-        // 忽略错误
-      }
-    }
+    // 并行创建所有 .gitkeep 文件
+    await Promise.all(
+      gitkeepFiles.map((file) =>
+        fs.writeFile(file, '').catch(() => {
+          // 忽略错误
+        })
+      )
+    );
   }
 
   /**
@@ -114,7 +116,7 @@ export class WorkspaceInitializer {
    * 生成配置文件
    */
   async generateConfig(): Promise<void> {
-    const configPath = join(this.workspacePath, 'config.json');
+    const configPath = getProjectConfigPath(this.workspacePath);
 
     try {
       await fs.access(configPath);
@@ -128,18 +130,61 @@ export class WorkspaceInitializer {
       version: '0.1.0',
       initializedAt: new Date().toISOString(),
       apiKeys: {
-        anthropic: '',
-        openai: '',
+        anthropic: process.env.ANTHROPIC_API_KEY || '',
+        openai: process.env.OPENAI_API_KEY || '',
       },
       workspace: this.workspacePath,
       logLevel: 'info',
     };
 
-    await fs.writeFile(
-      configPath,
-      JSON.stringify(defaultConfig, null, 2),
-      'utf-8'
-    );
+    await fs.writeFile(configPath, JSON.stringify(defaultConfig, null, 2), 'utf-8');
+  }
+
+  /**
+   * 创建默认 Agent
+   */
+  async createDefaultAgent(): Promise<void> {
+    const agentPath = join(this.workspacePath, 'agents', 'assistant');
+
+    try {
+      await fs.access(agentPath);
+      // Agent 已存在，跳过
+      return;
+    } catch {
+      // 不存在，继续创建
+    }
+
+    await fs.mkdir(agentPath, { recursive: true });
+
+    // 创建配置
+    const config = {
+      id: 'assistant',
+      name: '默认助手',
+      description: '我的 AI 助手',
+      model: 'claude-sonnet-4-6',
+      channels: [],
+      createdAt: new Date().toISOString(),
+    };
+
+    await fs.writeFile(join(agentPath, 'config.json'), JSON.stringify(config, null, 2), 'utf-8');
+
+    // 创建提示词
+    const prompt = `# 默认助手
+
+你是一个友好的 AI 助手，随时准备帮助用户。
+
+## 能力
+- 回答问题
+- 提供建议
+- 协助完成任务
+
+## 行为准则
+- 友好且专业
+- 提供准确信息
+- 如不确定，会诚实告知
+`;
+
+    await fs.writeFile(join(agentPath, 'prompt.md'), prompt, 'utf-8');
   }
 
   /**
@@ -164,6 +209,9 @@ export class WorkspaceInitializer {
 
       // 3. 生成配置
       await this.generateConfig();
+
+      // 4. 创建默认 Agent
+      await this.createDefaultAgent();
 
       return {
         success: true,

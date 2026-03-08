@@ -2,62 +2,155 @@
 
 多 Agent 协作框架，支持 AI Native 设计理念。
 
+## 🚀 AI Native 一键安装
+
+**只需要说一句话：**
+
+```
+"帮我安装 agent-swarm"
+```
+
+Claude 会自动完成所有配置，无需手动执行命令。
+
 ## AI Native 设计
 
 **核心理念**：用户用自然语言描述需求，AI 自动生成配置，无需手写 JSON。
 
 | 传统方式 | AI Native |
 |---------|-----------|
-| 手写 config.json | 告诉 Claude "创建一个客服 Agent" |
+| 手写 agent-swarm.json | 告诉 Claude "创建一个客服 Agent" |
 | 查阅文档了解字段 | Claude 读取 skills 自动生成 |
 | 容易拼写错误 | AI 保证格式正确 |
 
+## 📊 功能状态
+
+| 功能模块 | 状态 | 说明 |
+|---------|------|------|
+| **核心功能** |||
+| 多 Agent 管理 | ✅ 已实现 | 懒加载、空闲清理、生命周期管理 |
+| 消息路由 | ✅ 已实现 | 单播、广播、工作流编排 |
+| 会话持久化 | ✅ 已实现 | JSONL 格式、上下文恢复 |
+| **渠道接入** |||
+| CLI 命令行 | ✅ 已实现 | 交互式命令行界面 |
+| 钉钉 | ✅ 已实现 | 企业内部应用集成 |
+| 飞书 | ✅ 已实现 | 企业自建应用集成 |
+| **规划中 (v0.2.0)** |||
+| 工具调用 | 🚧 设计中 | 详见 [FEATURES.md](./FEATURES.md) |
+| 上下文裁剪 | 🚧 设计中 | 详见 [FEATURES.md](./FEATURES.md) |
+
+<details>
+<summary>📋 完整功能清单</summary>
+
+查看 [FEATURES.md](./FEATURES.md) 了解所有功能、版本规划和贡献指南。
+
+</details>
+
+---
+
 ## 快速开始
 
-### 1. 安装依赖
+### AI Native 安装（推荐）
+
+**一句话安装：**
+
+```
+"帮我安装 agent-swarm"
+```
+
+Claude 会自动执行：
+1. 配置 npm 全局目录（无需 sudo）
+2. 安装依赖并编译
+3. 全局安装 swarm 命令
+4. 初始化工作空间
+
+---
+
+### 手动安装
+
+如果需要手动安装，执行以下命令：
 
 ```bash
 git clone https://github.com/your-repo/agent-swarm.git
 cd agent-swarm
-npm install
-npm run build
+
+# 一键安装脚本
+./scripts/install.sh
+
+# 重新加载配置
+source ~/.bashrc  # 或 source ~/.zshrc
 ```
 
-### 2. 初始化工作空间
+### 2. 配置 API 密钥（可选）
+
+**方式一：环境变量（推荐）**
 
 ```bash
-swarm init
+# Anthropic Claude
+export ANTHROPIC_API_KEY=sk-ant-...
+
+# OpenAI
+export OPENAI_API_KEY=sk-...
+
+# 智谱 GLM
+export GLM_API_KEY=your-glm-api-key
+
+swarm start
 ```
 
-这会创建 `~/.agent-swarm/` 目录结构，包含：
-- `agents/` - Agent 配置目录
-- `sessions/` - 会话存储
-- `memory/` - 长期记忆
-- `.claude/skills/` - AI Native 技能文件
+**方式二：配置文件**
 
-### 3. 配置 API 密钥
-
-编辑 `~/.agent-swarm/config.json`：
+编辑 `~/.agent-swarm/agent-swarm.json`：
 
 ```json
 {
   "apiKeys": {
     "anthropic": "your-anthropic-key",
-    "openai": "your-openai-key"
+    "openai": "your-openai-key",
+    "glm": "your-glm-api-key"
   }
 }
 ```
 
-### 4. 创建 Agent
+### 2.1. 配置 Base URL（可选）
+
+如果需要使用自定义的 API 端点（如 GLM coding-plan），可以配置 Base URL。
+
+**方式一：环境变量（推荐）**
 
 ```bash
-swarm create-agent my-assistant --description "我的 AI 助手"
+# GLM 普通端点
+export GLM_BASE_URL=https://open.bigmodel.cn/api/paas/v4
+
+# GLM coding-plan 端点
+export GLM_BASE_URL=https://open.bigmodel.cn/api/paas/v4/coding-plan
+
+# 自定义 OpenAI 端点
+export OPENAI_BASE_URL=https://custom.openai.com/v1
 ```
 
-### 5. 启动服务
+**方式二：配置文件**
+
+编辑 `~/.agent-swarm/agent-swarm.json`：
+
+```json
+{
+  "apiKeys": {
+    "glm": "your-glm-api-key"
+  },
+  "baseUrls": {
+    "glm": "https://open.bigmodel.cn/api/paas/v4/coding-plan",
+    "openai": "https://custom.openai.com/v1",
+    "anthropic": "https://custom.anthropic.com"
+  }
+}
+```
+
+**优先级**：环境变量 > 配置文件 > 默认值
+
+### 3. 启动服务
 
 ```bash
-swarm start
+swarm
 ```
 
 启动后会看到：
@@ -73,42 +166,14 @@ swarm start
 输入消息发送给 Agent，输入 /exit 退出
 ```
 
-### 6. 开始对话
-
-```
-你: 你好
-助手: 你好！我是你的助手，有什么可以帮助你的吗？
-```
-
 ## CLI 命令
-
-### 命令列表
-
-| 命令 | 说明 |
-|------|------|
-| `swarm init` | 初始化工作空间 |
-| `swarm start` | 启动 Agent Swarm 服务 |
-| `swarm create-agent <name>` | 创建新 Agent |
-| `swarm list` | 列出所有 Agents |
-
-### swarm init
-
-初始化 Agent Swarm 工作空间：
-
-```bash
-swarm init                    # 使用默认路径 ~/.agent-swarm
-swarm init --force            # 强制重新初始化
-swarm init --quiet            # 静默模式
-```
 
 ### swarm start
 
 启动 Agent Swarm 服务：
 
 ```bash
-swarm start                   # 启动服务
-swarm start --dev             # 开发模式
-swarm start --port 3000       # 指定端口
+swarm
 ```
 
 ### swarm create-agent
@@ -136,9 +201,11 @@ swarm list -v                 # 详细信息
 swarm list --json             # JSON 格式
 ```
 
-## 创建 Agent
+## 创建更多 Agent
 
-### 方式一：CLI 命令（推荐）
+> 安装时已自动创建默认 Agent，以下为创建额外 Agent 的方法
+
+### 方式一：CLI 命令
 
 ```bash
 swarm create-agent translator --description "专业的中英翻译助手"
@@ -152,45 +219,11 @@ swarm create-agent translator --description "专业的中英翻译助手"
 用户: 创建一个翻译助手，支持中英互译
 ```
 
-Claude 会自动：
-1. 读取 `create-agent.md` skill
-2. 生成 `config.json` 和 `prompt.md`
-3. 创建完整的 Agent 配置
-
 ### 方式三：手动创建
 
 ```bash
-# 1. 创建目录
 mkdir -p ~/.agent-swarm/agents/translator
-
-# 2. 写配置
-cat > ~/.agent-swarm/agents/translator/config.json << 'EOF'
-{
-  "id": "translator",
-  "name": "翻译助手",
-  "description": "专业的中英翻译助手",
-  "model": "claude-sonnet-4-6",
-  "channels": [],
-  "createdAt": "2025-01-15T00:00:00.000Z"
-}
-EOF
-
-# 3. 写提示词
-cat > ~/.agent-swarm/agents/translator/prompt.md << 'EOF'
-# 翻译助手
-
-你是一个专业的翻译助手，精通中文和英文。
-
-## 角色定义
-- 提供准确、流畅的翻译
-- 保持原文的风格和语气
-- 处理专业术语和文化差异
-
-## 行为指南
-1. 准确翻译，不添加个人观点
-2. 如有歧义，提供多种翻译选项
-3. 保持格式（如引号、换行）
-EOF
+# 然后创建 config.json 和 prompt.md
 ```
 
 ### Agent 配置字段
@@ -279,10 +312,9 @@ Claude 会询问必需的配置信息并自动生成配置。
 
 | 命令 | 说明 |
 |------|------|
-| `npm run build` | 编译 TypeScript |
-| `npm test` | 运行测试 |
-| `npm run test:coverage` | 运行测试覆盖率 |
-| `npm run dev` | 开发模式（直接运行 tsx） |
+| `npm run setup` | 安装依赖并编译 |
+| `npm run build` | 编译 |
+| `npm test` | 测试 |
 
 ### CLI 交互命令
 
@@ -296,7 +328,7 @@ Claude 会询问必需的配置信息并自动生成配置。
 
 ```
 ~/.agent-swarm/
-├── config.json                  # 全局配置（API 密钥）
+├── agent-swarm.json             # 全局配置（API 密钥）
 │   // 示例: { "apiKeys": { "anthropic": "sk-ant-...", "openai": "sk-..." } }
 │
 ├── .claude/
@@ -325,10 +357,56 @@ Claude 会询问必需的配置信息并自动生成配置。
 }
 ```
 
+**使用智谱 GLM 模型：**
+
+1. 配置 GLM API 密钥和 Base URL（二选一）：
+
+```bash
+# 方式一：环境变量
+export GLM_API_KEY=your-glm-api-key
+
+# 普通端点（默认）
+export GLM_BASE_URL=https://open.bigmodel.cn/api/paas/v4
+
+# 或使用 coding-plan 端点
+export GLM_BASE_URL=https://open.bigmodel.cn/api/paas/v4/coding-plan
+```
+
+或在 `~/.agent-swarm/agent-swarm.json` 中配置：
+
+```json
+{
+  "apiKeys": {
+    "glm": "your-glm-api-key"
+  },
+  "baseUrls": {
+    "glm": "https://open.bigmodel.cn/api/paas/v4/coding-plan"
+  }
+}
+```
+
+2. 在 Agent 配置中使用 GLM 模型：
+
+```json
+{
+  "model": "glm-4-plus"
+}
+```
+
 支持的模型：
+
+**Anthropic Claude**
 - `claude-opus-4-6`
 - `claude-sonnet-4-6`
 - `claude-haiku-4-5`
+
+**智谱 GLM**
+- `glm-4-plus`
+- `glm-4-air`
+- `glm-4-flash`
+- `glm-4-plus-latest`
+- `glm-4-air-latest`
+- `glm-4-flash-latest`
 
 ### Q: 如何调整 Agent 的回复风格？
 
@@ -360,20 +438,34 @@ swarm list
 
 ## 全局安装
 
-将 `swarm` 命令安装到全局：
+**AI Native 方式：**
 
-```bash
-npm link
-# 或
-npm install -g .
+```
+"帮我安装 agent-swarm"
 ```
 
-安装后可在任何目录使用 `swarm` 命令。
+Claude 会自动运行安装脚本并配置所有依赖。
+
+**手动安装：**
+
+```bash
+./scripts/install.sh && source ~/.bashrc
+```
+
+**备选方案（使用 npx）：**
+
+```bash
+npx agent-swarm start
+```
+
+**⚠️ 注意**：
+- ❌ 不要使用 `sudo npm install -g .`，这会导致权限问题
+- ✅ 安装脚本会自动配置 npm 用户目录
+- ✅ 一次配置，永久生效（无需 sudo）
 
 ## 更多文档
 
 - [架构设计](.claude/design.md)
-- [CLI 测试策略](.claude/CLI_TEST_STRATEGY.md)
 - [回归测试用例](tests/REGRESSION_TEST_CASES.md)
 - [E2E 测试指南](tests/E2E_TEST_GUIDE.md)
 

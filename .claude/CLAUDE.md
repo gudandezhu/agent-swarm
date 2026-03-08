@@ -1,7 +1,7 @@
-# 架构设计(除非要求，否则不允许改动)
-[design.md](design.md)
-
----
+# 规则
+.claude/CLAUDE.md保持最简,只存放结果文档的链接,禁止存放过程文档
+保持文档和代码同步, 任何任务完成后必须检查相关文档是否需要同步更新
+非必要不新增文档,不要输出总结文档,仅保留关键核心信息到已有文档中
 
 # AI Native 设计规范
 
@@ -17,91 +17,35 @@
 
 ## 实现方式
 
-1. **Skills 目录**：`~/.agent-swarm/.claude/skills/`
+1. **Skills 目录**：框架用户 skills 在 `skills/`，开发 skills 在 `.claude/skills/`
 2. **工作流程**：用户描述需求 → Claude 读取 skill → 自动生成配置
 
-## 目录结构
+## Skills 架构
 
-```
-~/.agent-swarm/
-├── .claude/
-│   └── skills/
-│       ├── create-agent.md      # 创建 Agent
-│       ├── configure-agent.md   # 配置 Agent
-│       └── add-channel.md       # 添加渠道
-│
-├── agents/
-│   └── <agent-id>/
-│       ├── config.json          # AI 自动生成
-│       └── prompt.md            # AI 自动生成
-│
-└── sessions/
-```
+### 用户 Skills (`skills/`)
+框架的核心功能，终端用户使用：
+- `create-agent` - 创建 Agent
+- `configure-agent` - 配置 Agent
+- `add-channel` - 添加消息渠道
+- `start-dev-team` - 启动开发团队
 
-## 使用示例
+### 开发 Skills (`.claude/skills/`)
+框架开发使用：
+- `install` - 安装和部署框架
+- `dev/*` - 其他开发相关技能
 
-```
-用户: "创建一个翻译助手"
-Claude: [读取 create-agent.md] → 生成 config.json + prompt.md
+详见：[Skills README](../skills/README.md) | [开发 Skills README](skills/README.md)
 
-用户: "给翻译助手添加钉钉渠道"
-Claude: [读取 add-channel.md] → 更新 channels 配置
-```
+# 相关文档索引
 
----
+## 架构设计文档
+[design.md](design.md)
 
-# 回归测试用例：[REGRESSION_TEST_CASES.md](../tests/REGRESSION_TEST_CASES.md)
-要求：维持在300行以内，保留核心流程用例
+## 项目文档
+- [FEATURES.md](../FEATURES.md) - 功能清单与版本规划
+- [README.md](../README.md) - 快速开始与使用指南
 
-# 完整业务功能测试 [E2E_TEST_GUIDE.md](../tests/E2E_TEST_GUIDE.md)
-要求：尽可能不修改本文档，他是衡量代码是否偏离预期的重要因素
-
-# Vitest 测试技巧
-
-## coverage 测试
-
-- `npm run test:coverage` 默认进入 watch 模式，测试完成后会一直监听文件变化
-- 测试完成后会显示 `PASS Waiting for file changes... press h to show help, press q to quit`
-- 这不是卡住，而是在等待代码修改
-
-### 运行一次后退出（推荐）
-
-```bash
-# 方法1
-npm run test:coverage -- --run
-
-# 方法2
-npx vitest run --coverage
-```
-
-### watch 模式退出
-
-按 `q` 键退出
-
----
-
-# Docker E2E 测试
-
-## 目的
-在隔离的 Docker 环境中验证完整用户流程，模拟全新环境下的项目使用。
-
-## 文件
-- `Dockerfile.e2e` - E2E 测试镜像定义
-- `docker-compose.e2e.yml` - Docker Compose 配置
-- `tests/e2e-real-user.test.ts` - 真实用户场景测试
-
-## 运行命令
-
-```bash
-# 构建镜像
-docker build -f Dockerfile.e2e -t agent-swarm:e2e .
-
-# 运行 E2E 测试
-docker run --rm agent-swarm:e2e
-
-# 或运行特定测试
-docker run --rm agent-swarm:e2e npm test -- tests/e2e-real-user.test.ts --run
-
-# 使用 docker-compose
-docker-compose -f docker-compose.e2e.yml up
-```
+## 测试文档
+- [TEST_GUIDE.md](../tests/TEST_GUIDE.md) - 测试技巧与 E2E 指南
+- [REGRESSION_TEST_CASES.md](../tests/REGRESSION_TEST_CASES.md) - 回归测试用例
+- [E2E_TEST_GUIDE.md](../tests/E2E_TEST_GUIDE.md) - E2E 测试指南

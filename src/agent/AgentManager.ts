@@ -138,7 +138,7 @@ export class AgentManager {
       throw new Error(
         `API key not found for provider "${config.model.provider}". ` +
           `Please set environment variable ${config.model.provider.toUpperCase()}_API_KEY, ` +
-          `or add it to ~/.agent-swarm/config.json, ` +
+          `or add it to ~/.agent-swarm/agent-swarm.json, ` +
           `or configure it in the agent's config.json`
       );
     }

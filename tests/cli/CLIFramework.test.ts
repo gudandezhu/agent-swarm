@@ -6,36 +6,22 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { promises as fs } from 'fs';
 import { join } from 'path';
-import { tmpdir } from 'os';
 import { CLI } from '../../src/cli/CLI.js';
-import { WorkspaceInitializer } from '../../src/setup/WorkspaceInitializer.js';
+import { TestWorkspace } from './helpers/testWorkspace.js';
 
 describe('CLI Framework (P0)', () => {
-  const testWorkspace = join(tmpdir(), `agent-swarm-cli-test-${Date.now()}`);
+  let workspace: TestWorkspace;
   let cli: CLI;
 
   beforeEach(async () => {
-    // 清理测试目录
-    try {
-      await fs.rm(testWorkspace, { recursive: true, force: true });
-    } catch {
-      // 忽略
-    }
+    workspace = new TestWorkspace('cli-framework');
+    await workspace.initialize();
 
-    // 创建测试工作空间
-    const initializer = new WorkspaceInitializer(testWorkspace);
-    await initializer.initialize();
-
-    cli = new CLI(testWorkspace);
+    cli = new CLI(workspace.getPath());
   });
 
   afterEach(async () => {
-    // 清理测试目录
-    try {
-      await fs.rm(testWorkspace, { recursive: true, force: true });
-    } catch {
-      // 忽略
-    }
+    await workspace.cleanup();
   });
 
   describe('基本功能', () => {
@@ -45,17 +31,17 @@ describe('CLI Framework (P0)', () => {
 
     it('应该返回工作空间路径', () => {
       const path = cli.getWorkspacePath();
-      expect(path).toBe(testWorkspace);
+      expect(path).toBe(workspace.getPath());
     });
   });
 
   describe('命令解析', () => {
     it('应该解析命令参数', () => {
-      const args = ['start', '--port', '3000'];
+      const args = ['start', '--non-interactive'];
       const parsed = cli.parseArgs(args);
 
       expect(parsed.command).toBe('start');
-      expect(parsed.options).toEqual({ port: '3000' });
+      expect(parsed.options).toEqual({ 'non-interactive': true });
     });
 
     it('应该处理无参数命令', () => {
@@ -75,11 +61,10 @@ describe('CLI Framework (P0)', () => {
     });
 
     it('应该处理选项标志', () => {
-      const args = ['start', '--verbose', '--daemon'];
+      const args = ['start', '--non-interactive'];
       const parsed = cli.parseArgs(args);
 
-      expect(parsed.options.verbose).toBe(true);
-      expect(parsed.options.daemon).toBe(true);
+      expect(parsed.options['non-interactive']).toBe(true);
     });
   });
 
@@ -106,7 +91,7 @@ describe('CLI Framework (P0)', () => {
       expect((result.data as { agentId?: string }).agentId).toBe('test-agent');
 
       // 验证 Agent 目录已创建
-      const agentPath = join(testWorkspace, 'agents', 'test-agent');
+      const agentPath = join(workspace.getPath(), 'agents', 'test-agent');
       await fs.access(agentPath);
     });
 
@@ -118,7 +103,7 @@ describe('CLI Framework (P0)', () => {
 
       expect(result.success).toBe(true);
       expect(result.data).toBeDefined();
-      expect((result.data as { count?: number }).count).toBe(1);
+      expect((result.data as { count?: number }).count).toBe(1); // list-test-agent
     });
 
     it('应该处理缺少 Agent 名称的 create-agent 命令', async () => {

@@ -7,6 +7,7 @@
 import { promises as fs } from 'fs';
 import { join } from 'path';
 import { WorkspaceInitializer } from '../../setup/WorkspaceInitializer.js';
+import { getProjectConfigPath } from '../../constants.js';
 
 /**
  * init 命令执行结果
@@ -42,7 +43,7 @@ export async function initCommand(
 
   if (exists && !options.force) {
     // 验证完整性
-    const configPath = join(workspacePath, 'config.json');
+    const configPath = getProjectConfigPath(workspacePath);
     let hasConfig = false;
 
     try {
@@ -165,6 +166,6 @@ swarm init - 初始化工作空间
   ${join('~/.agent-swarm', 'sessions/')}      # 会话数据
   ${join('~/.agent-swarm', 'memory/')}        # 长期记忆
   ${join('~/.agent-swarm', '.claude/skills/')} # AI Native 技能
-  ${join('~/.agent-swarm', 'config.json')}     # 全局配置
+  ${join('~/.agent-swarm', 'agent-swarm.json')}     # 全局配置
   `.trim();
 }

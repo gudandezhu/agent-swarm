@@ -215,8 +215,11 @@ DingTalk消息发送失败→RetryScheduler重试→成功
 - **P1用例失败**: 警告合并，建议修复
 - **P2用例失败**: 可合并，记录问题
 
-## 当前覆盖率状态（2026-03-06）
+## 当前覆盖率状态
 
-- 整体覆盖率目标: 80%
-- 已达标: AgentManager(92%)、MessageBus(87%)、MessageRouter(91%)、ACKTracker(100%)、CLIChannel(100%)
-- 待提升: main.ts、config.ts、memory.ts、prompt.ts、JSONLMessageStore.ts、reliability/、DingTalkChannel.ts、FeishuChannel.ts
+查看最新覆盖率：
+```bash
+npm run test:coverage -- --run
+```
+
+**目标**: 整体覆盖率 >= 80%

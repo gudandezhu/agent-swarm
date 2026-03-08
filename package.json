@@ -9,14 +9,14 @@
   },
   "scripts": {
     "build": "tsc",
+    "setup": "npm install && npm run build && node dist/setup/init-workspace.js",
     "dev": "tsx src/main.ts",
     "dev:watch": "tsc --watch",
     "test": "vitest",
     "test:coverage": "vitest --coverage",
     "lint": "eslint dist",
     "format": "prettier --write src",
-    "start": "node dist/main.js",
-    "postinstall": "node dist/setup/init-workspace.js"
+    "start": "node dist/main.js"
   },
   "keywords": [
     "agent",

@@ -6,60 +6,48 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { promises as fs } from 'fs';
 import { join } from 'path';
-import { tmpdir } from 'os';
 import { ensureWorkspace, checkWorkspace } from '../../src/cli/ensureWorkspace.js';
+import { TestWorkspace } from './helpers/testWorkspace.js';
 
 const REQUIRED_DIRS = ['agents', 'sessions', 'memory', '.claude', '.claude/skills'];
 
 describe('运行时工作空间检查（P0）', () => {
-  const testWorkspace = join(tmpdir(), `runtime-check-test-${Date.now()}`);
-  const projectSkillsPath = join(tmpdir(), `project-skills-${Date.now()}`);
+  let workspace: TestWorkspace;
 
   beforeEach(async () => {
-    // 清理测试目录
-    try {
-      await fs.rm(testWorkspace, { recursive: true, force: true });
-      await fs.rm(projectSkillsPath, { recursive: true, force: true });
-    } catch {
-      // 忽略
-    }
-
-    // 创建项目 skills 目录
-    await fs.mkdir(projectSkillsPath, { recursive: true });
-    await fs.writeFile(join(projectSkillsPath, 'create-agent.md'), '# Create Agent');
+    workspace = new TestWorkspace('ensure-workspace');
+    await workspace.initialize({ skipConfig: true }); // 跳过配置，让测试创建
   });
 
   afterEach(async () => {
-    // 清理测试目录
-    try {
-      await fs.rm(testWorkspace, { recursive: true, force: true });
-      await fs.rm(projectSkillsPath, { recursive: true, force: true });
-    } catch {
-      // 忽略
-    }
+    await workspace.cleanup();
   });
 
   describe('ensureWorkspace', () => {
     it('应该在不存在时创建工作空间', async () => {
-      const result = await ensureWorkspace(testWorkspace, projectSkillsPath);
+      const result = await ensureWorkspace(workspace.getPath(), workspace.getProjectSkillsPath());
 
       expect(result.success).toBe(true);
       expect(result.created).toBe(true);
 
       // 验证目录创建
-      await fs.access(testWorkspace);
-      await fs.access(join(testWorkspace, 'agents'));
-      await fs.access(join(testWorkspace, '.claude', 'skills'));
+      await fs.access(workspace.getPath());
+      await fs.access(join(workspace.getPath(), 'agents'));
+      await fs.access(join(workspace.getPath(), '.claude', 'skills'));
     });
 
     it('应该在已存在时跳过', async () => {
-      // 先创建完整的工作空间
-      await fs.mkdir(join(testWorkspace, 'agents'), { recursive: true });
-      await fs.mkdir(join(testWorkspace, 'sessions'), { recursive: true });
-      await fs.mkdir(join(testWorkspace, 'memory'), { recursive: true });
-      await fs.mkdir(join(testWorkspace, '.claude', 'skills'), { recursive: true });
+      // 先创建完整的工作空间（包括配置文件）
+      await fs.mkdir(join(workspace.getPath(), 'agents'), { recursive: true });
+      await fs.mkdir(join(workspace.getPath(), 'sessions'), { recursive: true });
+      await fs.mkdir(join(workspace.getPath(), 'memory'), { recursive: true });
+      await fs.mkdir(join(workspace.getPath(), '.claude', 'skills'), { recursive: true });
+      await fs.writeFile(
+        join(workspace.getPath(), 'agent-swarm.json'),
+        JSON.stringify({ version: '0.1.0' })
+      );
 
-      const result = await ensureWorkspace(testWorkspace, projectSkillsPath);
+      const result = await ensureWorkspace(workspace.getPath(), workspace.getProjectSkillsPath());
 
       expect(result.success).toBe(true);
       expect(result.created).toBe(false);
@@ -67,16 +55,16 @@ describe('运行时工作空间检查（P0）', () => {
     });
 
     it('应该复制 skills 文件', async () => {
-      await ensureWorkspace(testWorkspace, projectSkillsPath);
+      await ensureWorkspace(workspace.getPath(), workspace.getProjectSkillsPath());
 
-      const skillPath = join(testWorkspace, '.claude', 'skills', 'create-agent.md');
+      const skillPath = join(workspace.getPath(), '.claude', 'skills', 'create-agent.md');
       await fs.access(skillPath);
     });
 
     it('应该生成配置文件', async () => {
-      await ensureWorkspace(testWorkspace, projectSkillsPath);
+      await ensureWorkspace(workspace.getPath(), workspace.getProjectSkillsPath());
 
-      const configPath = join(testWorkspace, 'config.json');
+      const configPath = join(workspace.getPath(), 'agent-swarm.json');
       const content = await fs.readFile(configPath, 'utf-8');
       const config = JSON.parse(content);
 
@@ -86,9 +74,9 @@ describe('运行时工作空间检查（P0）', () => {
 
     it('应该处理部分目录存在的情况', async () => {
       // 创建部分目录
-      await fs.mkdir(join(testWorkspace, 'agents'), { recursive: true });
+      await fs.mkdir(join(workspace.getPath(), 'agents'), { recursive: true });
 
-      const result = await ensureWorkspace(testWorkspace, projectSkillsPath);
+      const result = await ensureWorkspace(workspace.getPath(), workspace.getProjectSkillsPath());
 
       expect(result.success).toBe(true);
       expect(result.created).toBe(true);
@@ -98,7 +86,7 @@ describe('运行时工作空间检查（P0）', () => {
       // 使用无效路径（模拟权限问题）
       const invalidPath = '/root/invalid-path-test';
 
-      const result = await ensureWorkspace(invalidPath, projectSkillsPath);
+      const result = await ensureWorkspace(invalidPath, workspace.getProjectSkillsPath());
 
       expect(result.success).toBe(false);
       expect(result.error).toBeDefined();
@@ -107,34 +95,52 @@ describe('运行时工作空间检查（P0）', () => {
 
   describe('checkWorkspace', () => {
     it('应该检测工作空间存在', async () => {
-      // 创建完整的工作空间
+      // 创建完整的工作空间（包括配置文件）
       for (const dir of REQUIRED_DIRS) {
-        await fs.mkdir(join(testWorkspace, dir), { recursive: true });
+        await fs.mkdir(join(workspace.getPath(), dir), { recursive: true });
       }
+      await fs.writeFile(
+        join(workspace.getPath(), 'agent-swarm.json'),
+        JSON.stringify({ version: '0.1.0' })
+      );
 
-      const result = await checkWorkspace(testWorkspace);
+      const result = await checkWorkspace(workspace.getPath());
 
       expect(result.exists).toBe(true);
       expect(result.valid).toBe(true);
     });
 
     it('应该检测工作空间不存在', async () => {
-      const result = await checkWorkspace(testWorkspace);
+      // 清理工作空间，模拟不存在的情况
+      await workspace.cleanup();
+
+      const result = await checkWorkspace(workspace.getPath());
 
       expect(result.exists).toBe(false);
       expect(result.valid).toBe(false);
     });
 
     it('应该检测工作空间完整性', async () => {
-      // 创建不完整的工作空间（只有部分目录）
-      await fs.mkdir(testWorkspace, { recursive: true });
+      // 创建配置文件和完整的目录结构，然后删除 sessions 模拟不完整
+      for (const dir of REQUIRED_DIRS) {
+        await fs.mkdir(join(workspace.getPath(), dir), { recursive: true });
+      }
+      await fs.writeFile(
+        join(workspace.getPath(), 'agent-swarm.json'),
+        JSON.stringify({ version: '0.1.0' })
+      );
+      // 删除 sessions 目录模拟不完整
+      await fs.rm(join(workspace.getPath(), 'sessions'), { recursive: true });
 
-      const result = await checkWorkspace(testWorkspace);
+      const result = await checkWorkspace(workspace.getPath());
 
       expect(result.exists).toBe(true);
       expect(result.valid).toBe(false);
       expect(result.missingDirs).toBeDefined();
-      expect(result.missingDirs.length).toBeGreaterThan(0);
+      if (result.missingDirs) {
+        expect(result.missingDirs.length).toBeGreaterThan(0);
+        expect(result.missingDirs).toContain('sessions');
+      }
     });
   });
 });

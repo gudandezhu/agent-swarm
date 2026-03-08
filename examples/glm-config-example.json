@@ -1,0 +1,32 @@
+{
+  "$schema": "../.claude/schemas/config-schema.json",
+  "description": "GLM 配置示例 - 支持普通端点和 coding-plan 端点",
+
+  "apiKeys": {
+    "anthropic": "sk-ant-your-key-here",
+    "openai": "sk-openai-your-key-here",
+    "glm": "your-glm-api-key-here"
+  },
+
+  "baseUrls": {
+    "glm": "https://open.bigmodel.cn/api/paas/v4",
+    "anthropic": "https://api.anthropic.com",
+    "openai": "https://api.openai.com/v1"
+  },
+
+  "examples": {
+    "glm-coding-plan": {
+      "description": "使用 GLM coding-plan 端点",
+      "baseUrls": {
+        "glm": "https://open.bigmodel.cn/api/paas/v4/coding-plan"
+      }
+    },
+
+    "glm-custom-endpoint": {
+      "description": "使用自定义 GLM 端点",
+      "baseUrls": {
+        "glm": "https://your-custom-glm-endpoint.com/v1"
+      }
+    }
+  }
+}

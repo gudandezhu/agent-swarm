@@ -8,6 +8,7 @@ import { join } from 'path';
 import type { AgentSwarm } from '../../AgentSwarm.js';
 import type { MockResponseGenerator } from '../../agent/AgentManager.js';
 import { validateWorkspace } from '../ensureWorkspace.js';
+import { getProjectConfigPath, DEFAULTS } from '../../constants.js';
 
 /**
  * start 命令执行结果
@@ -26,8 +27,6 @@ export interface StartCommandResult {
  * start 命令选项
  */
 export interface StartCommandOptions {
-  port?: number;
-  daemon?: boolean;
   nonInteractive?: boolean;
   mockResponse?: MockResponseGenerator;
 }
@@ -51,7 +50,7 @@ export async function startCommand(
   }
 
   // 2. 检查配置文件
-  const configPath = join(workspacePath, 'config.json');
+  const configPath = getProjectConfigPath(workspacePath);
   let config: Record<string, unknown> = {};
 
   try {
@@ -79,7 +78,7 @@ export async function startCommand(
     return {
       success: false,
       error: '未配置 Anthropic API Key',
-      message: '请在 config.json 中配置 apiKeys.anthropic 或设置 ANTHROPIC_API_KEY 环境变量',
+      message: '请在 agent-swarm.json 中配置 apiKeys.anthropic 或设置 ANTHROPIC_API_KEY 环境变量',
     };
   }
 
@@ -102,6 +101,7 @@ export async function startCommand(
     agentsPath: join(workspacePath, 'agents'),
     sessionsPath: join(workspacePath, 'sessions'),
     mockResponse: options.mockResponse,
+    defaultAgent: (config.defaultAgent as string | undefined) ?? DEFAULTS.AGENT_ID,
   };
 
   try {
@@ -140,8 +140,7 @@ function generateStartMessage(
   config: Record<string, unknown>,
   options: StartCommandOptions
 ): string {
-  const mode = options.daemon ? '后台模式' : '交互模式';
-  const port = options.port || 'default';
+  const mode = options.nonInteractive ? '非交互模式' : '交互模式';
 
   return `
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -150,7 +149,6 @@ function generateStartMessage(
 
 ✓ 工作空间: ${workspacePath}
 ✓ 运行模式: ${mode}
-✓ 端口: ${port}
 ✓ 配置版本: ${config.version}
 
 🤖 服务状态:
@@ -164,7 +162,6 @@ function generateStartMessage(
 
 💡 提示:
   - 使用 Ctrl+C 优雅退出
-  - 后台模式使用进程管理器管理
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 `.trim();
@@ -181,8 +178,6 @@ swarm start - 启动 Agent Swarm 服务
   swarm start [选项]
 
 选项:
-  --port <端口>       指定服务端口
-  --daemon            后台模式运行
   --non-interactive  非交互模式
 
 说明:
@@ -193,13 +188,11 @@ swarm start - 启动 Agent Swarm 服务
   否则将使用 Mock 模式进行测试。
 
 示例:
-  swarm start              启动交互模式
-  swarm start --daemon     后台模式启动
-  swarm start --port 3000  指定端口启动
+  swarm start                    启动交互模式
   swarm start --non-interactive  非交互模式
 
 输出:
-  服务启动后进入交互模式或后台运行
+  服务启动后进入交互模式
   显示加载的 Agents 列表
   显示消息总线状态
   `.trim();

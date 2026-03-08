@@ -15,6 +15,7 @@ export interface TestWorkspaceConfig {
   name?: string;
   withAgents?: boolean;
   agentConfigs?: Array<{ id: string; name: string; description?: string }>;
+  skipConfig?: boolean; // 跳过创建配置文件（用于测试初始化）
 }
 
 /**
@@ -27,7 +28,10 @@ export class TestWorkspace {
   constructor(name?: string) {
     const timestamp = Date.now();
     const randomSuffix = Math.floor(Math.random() * 1000);
-    this.workspacePath = join(tmpdir(), `swarm-test-${name || 'workspace'}-${timestamp}-${randomSuffix}`);
+    this.workspacePath = join(
+      tmpdir(),
+      `swarm-test-${name || 'workspace'}-${timestamp}-${randomSuffix}`
+    );
     this.projectSkillsPath = join(tmpdir(), `project-skills-${timestamp}-${randomSuffix}`);
   }
 
@@ -74,37 +78,50 @@ export class TestWorkspace {
       this.projectSkillsPath,
     ];
 
-    for (const dir of directories) {
-      await FileOps.ensureDir(dir);
-    }
+    // 并行创建所有目录
+    await Promise.all(directories.map((dir) => FileOps.ensureDir(dir)));
 
-    // 创建配置文件
-    const configContent = {
-      version: '0.1.0',
-      initializedAt: new Date().toISOString(),
-      apiKeys: {
-        anthropic: 'sk-test-key-for-testing',
-        openai: '',
-      },
-      workspace: this.workspacePath,
-      logLevel: 'info',
-    };
-    await FileOps.writeJSON(join(this.workspacePath, 'config.json'), configContent);
-
-    // 创建 skills 文件
-    const skills = ['create-agent.md', 'configure-agent.md', 'add-channel.md'];
-    for (const skill of skills) {
-      await FileOps.writeFile(
-        join(this.workspacePath, '.claude', 'skills', skill),
-        `# ${skill}\n\n这是 ${skill} 的内容。`
-      );
-    }
+    // 并行创建配置文件和 skills
+    await Promise.all([
+      // 创建配置文件（除非跳过）
+      ...(config.skipConfig
+        ? []
+        : [
+            (async () => {
+              const configContent = {
+                version: '0.1.0',
+                initializedAt: new Date().toISOString(),
+                apiKeys: {
+                  anthropic: 'sk-test-key-for-testing',
+                  openai: '',
+                },
+                workspace: this.workspacePath,
+                logLevel: 'info',
+              };
+              await FileOps.writeJSON(join(this.workspacePath, 'agent-swarm.json'), configContent);
+            })(),
+          ]),
+      // 创建 skills 文件
+      (async () => {
+        const skills = ['create-agent.md', 'configure-agent.md', 'add-channel.md'];
+        await Promise.all(
+          skills.map((skill) =>
+            FileOps.writeFile(
+              join(this.workspacePath, '.claude', 'skills', skill),
+              `# ${skill}\n\n这是 ${skill} 的内容。`
+            )
+          )
+        );
+      })(),
+    ]);
 
     // 创建测试 Agents
     if (config.withAgents && config.agentConfigs) {
-      for (const agentConfig of config.agentConfigs) {
-        await this.createAgent(agentConfig.id, agentConfig.name, agentConfig.description);
-      }
+      await Promise.all(
+        config.agentConfigs.map((agentConfig) =>
+          this.createAgent(agentConfig.id, agentConfig.name, agentConfig.description)
+        )
+      );
     }
   }
 

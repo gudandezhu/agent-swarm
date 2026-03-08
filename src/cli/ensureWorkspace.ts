@@ -7,6 +7,7 @@
 import { promises as fs } from 'fs';
 import { join } from 'path';
 import { WorkspaceInitializer } from '../setup/WorkspaceInitializer.js';
+import { getProjectConfigPath } from '../constants.js';
 
 /**
  * 工作空间检查结果
@@ -36,8 +37,10 @@ const REQUIRED_DIRS = ['agents', 'sessions', 'memory', '.claude', '.claude/skill
  * 检查工作空间是否存在且完整
  */
 export async function checkWorkspace(workspacePath: string): Promise<WorkspaceCheckResult> {
+  // 检查配置文件是否存在（工作空间存在的标志）
+  const configPath = getProjectConfigPath(workspacePath);
   try {
-    await fs.access(workspacePath);
+    await fs.access(configPath);
   } catch {
     return { exists: false, valid: false };
   }
@@ -89,7 +92,7 @@ export async function ensureWorkspace(
       await initializer.copySkills();
 
       // 检查配置文件
-      const configPath = join(workspacePath, 'config.json');
+      const configPath = getProjectConfigPath(workspacePath);
       try {
         await fs.access(configPath);
       } catch {
@@ -143,7 +146,7 @@ export async function validateWorkspace(workspacePath: string): Promise<{
   }
 
   // 检查配置文件
-  const configPath = join(workspacePath, 'config.json');
+  const configPath = getProjectConfigPath(workspacePath);
   try {
     const content = await fs.readFile(configPath, 'utf-8');
     JSON.parse(content); // 验证 JSON 格式
